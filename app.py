@@ -79,8 +79,46 @@ class InteractionResponse(BaseModel):
 recommendation_system: Optional[RecommendationSystem] = None
 api: Optional[RecommendationAPI] = None
 
+def load_yelp_business_data():
+    """Load real Yelp business data for recommendations"""
+    try:
+        import pandas as pd
+        
+        # Load business data
+        business_file = "data/raw/yelp_multimodal_final/business_clean.csv"
+        if os.path.exists(business_file):
+            df_business = pd.read_csv(business_file)
+            
+            # Create item metadata from real businesses
+            item_metadata = {}
+            for idx, row in df_business.iterrows():
+                business_id = row.get('business_id', idx)
+                name = row.get('name', f'Business {idx}')
+                categories = row.get('categories', 'Restaurant')
+                city = row.get('city', 'Unknown')
+                state = row.get('state', 'Unknown')
+                stars = row.get('stars', 0)
+                
+                item_metadata[idx] = {
+                    'name': name,
+                    'category': categories.split(',')[0] if isinstance(categories, str) else 'Restaurant',
+                    'location': f"{city}, {state}",
+                    'rating': f"{stars} stars",
+                    'description': f"{name} - {categories} in {city}, {state} (Rated {stars} stars)"
+                }
+            
+            logger.info(f"Loaded {len(item_metadata)} real Yelp businesses")
+            return item_metadata
+        else:
+            logger.warning("Yelp business data not found")
+            return None
+            
+    except Exception as e:
+        logger.error(f"Error loading Yelp data: {e}")
+        return None
+
 def initialize_system():
-    """Initialize the recommendation system"""
+    """Initialize the recommendation system with real Yelp data"""
     global recommendation_system, api
     
     try:
@@ -91,6 +129,8 @@ def initialize_system():
         metadata_path = "data/processed/metadata.pt"
         if os.path.exists(metadata_path):
             metadata = torch.load(metadata_path, weights_only=False)
+            
+            logger.info(f"Initializing with {metadata['num_users']} users, {metadata['num_items']} items")
             
             # Create models
             encoder = RecommendationEncoder(
@@ -106,6 +146,10 @@ def initialize_system():
             # Create trust mechanism
             trust_mechanism = TrustMechanism()
             
+            # Set models to evaluation mode for inference
+            encoder.eval()
+            gnn.eval()
+            
             # Create recommendation system
             recommendation_system = RecommendationSystem(
                 encoder, gnn, trust_mechanism,
@@ -116,18 +160,25 @@ def initialize_system():
             # Create API
             api = RecommendationAPI(recommendation_system)
             
-            # Set some dummy item metadata
-            item_metadata = {
-                i: {
-                    'name': f'Product {i}',
-                    'category': f'Category {i % 5}',
-                    'price': f'${10.0 + i * 2.5:.2f}',
-                    'description': f'This is product {i} from category {i % 5}'
-                } for i in range(metadata['num_items'])
-            }
+            logger.info("Models set to evaluation mode")
+            
+            # Load REAL Yelp business data
+            item_metadata = load_yelp_business_data()
+            
+            if item_metadata is None:
+                # Fallback to dummy metadata
+                item_metadata = {
+                    i: {
+                        'name': f'Product {i}',
+                        'category': f'Category {i % 5}',
+                        'price': f'${10.0 + i * 2.5:.2f}',
+                        'description': f'This is product {i} from category {i % 5}'
+                    } for i in range(metadata['num_items'])
+                }
+            
             recommendation_system.set_item_metadata(item_metadata)
             
-            logger.info("Recommendation system initialized successfully")
+            logger.info("✅ Recommendation system initialized with REAL Yelp data!")
         else:
             logger.warning("No metadata found. Using dummy system.")
             create_dummy_system()
@@ -178,12 +229,22 @@ async def get_recommendations(request: RecommendationRequest):
     if api is None:
         raise HTTPException(status_code=500, detail="Recommendation system not initialized")
     
-    result = api.get_recommendations(request.user_id, request.top_k, request.trust_aware)
-    
-    if result['success']:
-        return RecommendationResponse(**result)
-    else:
-        raise HTTPException(status_code=400, detail=result.get('error', 'Unknown error'))
+    try:
+        logger.info(f"Getting recommendations for user {request.user_id}")
+        result = api.get_recommendations(request.user_id, request.top_k, request.trust_aware)
+        
+        if result['success']:
+            logger.info(f"Successfully got {result['num_recommendations']} recommendations")
+            return RecommendationResponse(**result)
+        else:
+            error_msg = result.get('error', 'Unknown error')
+            logger.error(f"Recommendation error: {error_msg}")
+            raise HTTPException(status_code=400, detail=error_msg)
+    except Exception as e:
+        logger.error(f"Exception in get_recommendations: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/similar-items", response_model=SimilarItemsResponse)
 async def get_similar_items(request: SimilarItemsRequest):

@@ -16,6 +16,7 @@ project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
 from data.dataset_preparation import DatasetPreparation
+from data.yelp_dataset_preparation import YelpDatasetPreparation
 from server.federated_server import start_server
 from client.federated_client import start_client
 from utils.recommendation_system import RecommendationSystem, RecommendationAPI
@@ -30,18 +31,32 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def prepare_dataset(args):
+def prepare_dataset(args, use_yelp=True):
     """Prepare dataset for federated learning"""
     
     logger.info("Preparing dataset...")
     
-    dataset_prep = DatasetPreparation()
-    client_data, metadata = dataset_prep.prepare_full_dataset(
-        num_users=getattr(args, 'num_users', 100),
-        num_items=getattr(args, 'num_items', 50),
-        num_interactions=getattr(args, 'num_interactions', 500),
-        num_clients=getattr(args, 'num_clients', 5)
-    )
+    if use_yelp:
+        # Use real Yelp dataset
+        logger.info("Using REAL Yelp Multimodal Dataset")
+        dataset_prep = YelpDatasetPreparation()
+        client_data, metadata = dataset_prep.prepare_yelp_for_federated_learning(
+            num_clients=getattr(args, 'num_clients', 5)
+        )
+    else:
+        # Use synthetic sample data
+        logger.info("Using synthetic sample data")
+        dataset_prep = DatasetPreparation()
+        client_data, metadata = dataset_prep.prepare_full_dataset(
+            num_users=getattr(args, 'num_users', 100),
+            num_items=getattr(args, 'num_items', 50),
+            num_interactions=getattr(args, 'num_interactions', 500),
+            num_clients=getattr(args, 'num_clients', 5)
+        )
+    
+    if client_data is None:
+        logger.error("Dataset preparation failed!")
+        return None, None
     
     logger.info(f"Dataset prepared: {metadata['num_users']} users, {metadata['num_items']} items")
     logger.info(f"Data split among {args.num_clients} clients")
@@ -85,9 +100,17 @@ def run_simulation(args):
     """Run a complete federated learning simulation"""
     
     logger.info("Starting complete simulation...")
+    logger.info("="*70)
+    logger.info("TRUST-AWARE FEDERATED MULTIMODAL GRAPH RECOMMENDATION")
+    logger.info("Using REAL Yelp Dataset")
+    logger.info("="*70)
     
-    # Step 1: Prepare dataset
-    client_data, metadata = prepare_dataset(args)
+    # Step 1: Prepare dataset (use real Yelp data)
+    client_data, metadata = prepare_dataset(args, use_yelp=True)
+    
+    if client_data is None:
+        logger.error("Failed to prepare dataset. Exiting.")
+        return
     
     # Step 2: Start server in background
     server_process = mp.Process(
@@ -284,6 +307,11 @@ def main():
     prepare_parser.add_argument("--num-items", type=int, default=50, help="Number of items")
     prepare_parser.add_argument("--num-interactions", type=int, default=500, help="Number of interactions")
     prepare_parser.add_argument("--num-clients", type=int, default=5, help="Number of federated clients")
+    prepare_parser.add_argument("--use-yelp", action="store_true", default=True, help="Use real Yelp dataset")
+    
+    # Yelp dataset preparation (specific command)
+    yelp_parser = subparsers.add_parser("prepare-yelp", help="Prepare REAL Yelp dataset")
+    yelp_parser.add_argument("--num-clients", type=int, default=5, help="Number of federated clients")
     
     # Server
     server_parser = subparsers.add_parser("server", help="Start federated server")
@@ -311,7 +339,18 @@ def main():
     args = parser.parse_args()
     
     if args.command == "prepare":
-        prepare_dataset(args)
+        prepare_dataset(args, use_yelp=getattr(args, 'use_yelp', True))
+    elif args.command == "prepare-yelp":
+        logger.info("Preparing REAL Yelp Multimodal Dataset...")
+        dataset_prep = YelpDatasetPreparation()
+        client_data, metadata = dataset_prep.prepare_yelp_for_federated_learning(
+            num_clients=args.num_clients
+        )
+        if client_data:
+            logger.info("✅ Yelp dataset prepared successfully!")
+            logger.info(f"   Users: {metadata['num_users']}, Items: {metadata['num_items']}, Images: {metadata['num_images']}")
+        else:
+            logger.error("❌ Failed to prepare Yelp dataset")
     elif args.command == "server":
         run_server(args)
     elif args.command == "client":

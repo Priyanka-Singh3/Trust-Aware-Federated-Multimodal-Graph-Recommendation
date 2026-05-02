@@ -68,36 +68,44 @@ class FederatedClient:
         self.dataloader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=True)
     
     def set_model_parameters(self, parameters: List[np.ndarray]):
-        """Set model parameters from server"""
+        """Set model parameters from server - handles Flower API format"""
         
-        # Split parameters for encoder and GNN
         encoder_state_dict = self.encoder.state_dict()
         gnn_state_dict = self.gnn.state_dict()
         
-        # Calculate split point
-        encoder_param_count = sum(p.numel() for p in encoder_state_dict.values())
+        # Convert parameters to list of numpy arrays if needed
+        if not isinstance(parameters, list):
+            parameters = list(parameters)
         
-        # Set encoder parameters
-        encoder_params = parameters[:encoder_param_count]
-        idx = 0
-        for key in encoder_state_dict:
-            param_shape = encoder_state_dict[key].shape
-            param_size = np.prod(param_shape)
-            encoder_state_dict[key] = torch.tensor(
-                encoder_params[idx:idx + param_size].reshape(param_shape)
-            )
-            idx += param_size
+        # Get encoder keys and set parameters by position
+        encoder_keys = list(encoder_state_dict.keys())
+        for i, key in enumerate(encoder_keys):
+            if i < len(parameters):
+                try:
+                    param_array = np.array(parameters[i], dtype=np.float32)
+                    # Ensure shape matches
+                    expected_shape = tuple(encoder_state_dict[key].shape)
+                    if param_array.shape == expected_shape:
+                        encoder_state_dict[key] = torch.tensor(param_array, dtype=torch.float32)
+                except (ValueError, TypeError):
+                    # Skip if conversion fails
+                    pass
         
-        # Set GNN parameters
-        gnn_params = parameters[encoder_param_count:]
-        idx = 0
-        for key in gnn_state_dict:
-            param_shape = gnn_state_dict[key].shape
-            param_size = np.prod(param_shape)
-            gnn_state_dict[key] = torch.tensor(
-                gnn_params[idx:idx + param_size].reshape(param_shape)
-            )
-            idx += param_size
+        # Get GNN keys and set parameters by position (after encoder params)
+        gnn_keys = list(gnn_state_dict.keys())
+        offset = len(encoder_keys)
+        for i, key in enumerate(gnn_keys):
+            param_idx = offset + i
+            if param_idx < len(parameters):
+                try:
+                    param_array = np.array(parameters[param_idx], dtype=np.float32)
+                    # Ensure shape matches
+                    expected_shape = tuple(gnn_state_dict[key].shape)
+                    if param_array.shape == expected_shape:
+                        gnn_state_dict[key] = torch.tensor(param_array, dtype=torch.float32)
+                except (ValueError, TypeError):
+                    # Skip if conversion fails
+                    pass
         
         self.encoder.load_state_dict(encoder_state_dict)
         self.gnn.load_state_dict(gnn_state_dict)
@@ -201,21 +209,29 @@ class FederatedClient:
         }
 
 class FlowerClient(fl.client.Client):
-    """Flower client implementation"""
+    """Flower client implementation for Flower 1.23.0+"""
     
     def __init__(self, federated_client: FederatedClient):
         super().__init__()
         self.federated_client = federated_client
     
-    def get_parameters(self, config: Dict) -> fl.common.NDArrays:
+    def get_parameters(self, ins: fl.common.GetParametersIns) -> fl.common.GetParametersRes:
         """Get model parameters"""
-        return self.federated_client.get_model_parameters()
+        parameters = self.federated_client.get_model_parameters()
+        return fl.common.GetParametersRes(
+            status=fl.common.Status(code=fl.common.Code.OK, message="Success"),
+            parameters=fl.common.Parameters(tensors=parameters, tensor_type="numpy.ndarray")
+        )
     
-    def fit(self, parameters: fl.common.NDArrays, config: Dict) -> Tuple[fl.common.NDArrays, int, Dict]:
+    def fit(self, ins: fl.common.FitIns) -> fl.common.FitRes:
         """Train model on local data"""
         
+        # Extract parameters and config from FitIns
+        parameters = ins.parameters
+        config = ins.config
+        
         # Set parameters from server
-        self.federated_client.set_model_parameters(parameters)
+        self.federated_client.set_model_parameters(parameters.tensors)
         
         # Train locally
         training_results = self.federated_client.train(self.federated_client.local_epochs)
@@ -227,17 +243,25 @@ class FlowerClient(fl.client.Client):
         metrics = {
             'client_id': self.federated_client.client_id,
             'loss': training_results['avg_loss'],
-            'training_time': training_results['training_time'],
-            'num_samples': training_results['num_samples']
+            'training_time': training_results['training_time']
         }
         
-        return updated_parameters, training_results['num_samples'], metrics
+        return fl.common.FitRes(
+            status=fl.common.Status(code=fl.common.Code.OK, message="Success"),
+            parameters=fl.common.Parameters(tensors=updated_parameters, tensor_type="numpy.ndarray"),
+            num_examples=training_results['num_samples'],
+            metrics=metrics
+        )
     
-    def evaluate(self, parameters: fl.common.NDArrays, config: Dict) -> Tuple[float, int, Dict]:
+    def evaluate(self, ins: fl.common.EvaluateIns) -> fl.common.EvaluateRes:
         """Evaluate model on local data"""
         
+        # Extract parameters and config from EvaluateIns
+        parameters = ins.parameters
+        config = ins.config
+        
         # Set parameters from server
-        self.federated_client.set_model_parameters(parameters)
+        self.federated_client.set_model_parameters(parameters.tensors)
         
         # Evaluate
         eval_results = self.federated_client.evaluate()
@@ -248,7 +272,12 @@ class FlowerClient(fl.client.Client):
             'accuracy': eval_results['accuracy']
         }
         
-        return eval_results['loss'], self.federated_client.num_samples, metrics
+        return fl.common.EvaluateRes(
+            status=fl.common.Status(code=fl.common.Code.OK, message="Success"),
+            loss=eval_results['loss'],
+            num_examples=self.federated_client.num_samples,
+            metrics=metrics
+        )
 
 def start_client(client_id: int, server_address: str = "localhost:8080"):
     """Start a federated learning client"""

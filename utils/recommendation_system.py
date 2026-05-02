@@ -120,8 +120,15 @@ class RecommendationSystem:
             seen_items = set(interaction['item_id'] for interaction in self.user_history[user_id])
         
         # Create dummy features if not provided
+        # Get text feature dimension from encoder
+        text_dim = getattr(self.encoder, 'text_projection', None)
+        if text_dim is not None:
+            text_input_dim = text_dim.in_features
+        else:
+            text_input_dim = 1000  # Default from metadata
+        
         if text_features is None:
-            text_features = torch.randn(1, 30)  # Default text feature dimension from metadata
+            text_features = torch.randn(1, text_input_dim)
         if images is None:
             images = torch.randn(1, 3, 224, 224)  # Default image size
         
@@ -181,8 +188,15 @@ class RecommendationSystem:
         """Find similar items to a given item"""
         
         # Get embedding for target item
+        # Get text feature dimension from encoder
+        text_dim = getattr(self.encoder, 'text_projection', None)
+        if text_dim is not None:
+            text_input_dim = text_dim.in_features
+        else:
+            text_input_dim = 1000
+            
         if text_features is None:
-            text_features = torch.randn(1, 30)
+            text_features = torch.randn(1, text_input_dim)
         if images is None:
             images = torch.randn(1, 3, 224, 224)
         
@@ -224,7 +238,14 @@ class RecommendationSystem:
         recall_scores = []
         ndcg_scores = []
         
-        text_features = torch.randn(1, 30)
+        # Get text feature dimension from encoder
+        text_dim = getattr(self.encoder, 'text_projection', None)
+        if text_dim is not None:
+            text_input_dim = text_dim.in_features
+        else:
+            text_input_dim = 1000
+        
+        text_features = torch.randn(1, text_input_dim)
         images = torch.randn(1, 3, 224, 224)
         
         for interaction in test_interactions:
