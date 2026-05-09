@@ -53,6 +53,10 @@ class ResearchEvaluator:
         
         # Results storage
         self.results = {}
+        self.user_ground_truth = {}
+        
+        # Load and split real data for testing
+        self.load_and_split_real_data()
         
     def load_yelp_metadata(self):
         """Load real Yelp business data"""
@@ -77,29 +81,74 @@ class ResearchEvaluator:
         except Exception as e:
             print(f"⚠️ Error loading Yelp data: {e}")
     
-    def generate_test_data(self, num_test_users: int = 100, interactions_per_user: int = 10) -> List[Dict]:
-        """Generate synthetic test interactions"""
-        test_interactions = []
+    def load_and_split_real_data(self, test_ratio: float = 0.2):
+        """Load real interactions and perform Train/Test split per user"""
+        import glob
         
-        np.random.seed(42)
-        for user_id in range(min(num_test_users, self.num_users)):
-            # Generate random items this user has interacted with
-            num_items_for_user = min(interactions_per_user, self.num_items)
-            item_ids = np.random.choice(self.num_items, num_items_for_user, replace=False)
+        client_files = glob.glob("data/processed/client_*_data.pt")
+        if not client_files:
+            print("⚠️ No real processed data found. Ensure you run yelp_dataset_preparation.py first.")
+            self.user_ground_truth = {}
+            return
+
+        all_user_ids = []
+        all_item_ids = []
+        all_ratings = []
+        
+        print(f"Loading {len(client_files)} client files for Train/Test split...")
+        for file in client_files:
+            try:
+                data = torch.load(file, weights_only=False)
+                all_user_ids.extend(data['user_ids'].tolist())
+                all_item_ids.extend(data['item_ids'].tolist())
+                all_ratings.extend(data['ratings'].tolist())
+            except Exception as e:
+                print(f"Error loading {file}: {e}")
+        
+        # Group by user
+        user_interactions = {}
+        for u, i, r in zip(all_user_ids, all_item_ids, all_ratings):
+            if u not in user_interactions:
+                user_interactions[u] = []
+            user_interactions[u].append({'item_id': i, 'rating': r})
             
-            for item_id in item_ids:
-                # Simulate rating (1-5) with some noise
-                base_rating = np.random.normal(3.5, 1.0)
-                rating = max(1.0, min(5.0, base_rating))
-                
-                test_interactions.append({
-                    'user_id': user_id,
-                    'item_id': int(item_id),
-                    'rating': rating,
-                    'timestamp': int(time.time()) - np.random.randint(0, 1000000)
-                })
+        print(f"Total unique users found: {len(user_interactions)}")
         
-        return test_interactions
+        train_count = 0
+        test_count = 0
+        
+        # Split train/test
+        np.random.seed(42)
+        for user_id, interactions in user_interactions.items():
+            np.random.shuffle(interactions)
+            n = len(interactions)
+            
+            if n < 2:
+                # Can't split, put in train
+                num_test = 0
+            else:
+                num_test = max(1, int(n * test_ratio))
+                
+            test_ints = interactions[:num_test]
+            train_ints = interactions[num_test:]
+            
+            # Populate model history (train set)
+            for interaction in train_ints:
+                self.rec_system.update_user_history(
+                    user_id=user_id,
+                    item_id=interaction['item_id'],
+                    rating=interaction['rating'],
+                    review_text="Real review",
+                    timestamp=int(time.time())
+                )
+                train_count += 1
+                
+            # Populate ground truth (test set)
+            if test_ints:
+                self.user_ground_truth[user_id] = [int(i['item_id']) for i in test_ints]
+                test_count += len(test_ints)
+                
+        print(f"✅ Loaded and split real data: {train_count} train interactions, {test_count} test interactions")
     
     def calculate_precision_recall_ndcg(self, recommendations: List[int], 
                                        ground_truth: List[int], k: int = 10) -> Tuple[float, float, float]:
@@ -127,106 +176,131 @@ class ResearchEvaluator:
         
         return precision, recall, ndcg
     
+    def fast_recommend_for_user(self, user_id: int, top_k: int = 20, batch_size: int = 256) -> List[int]:
+        """Score all items quickly by bypassing the slow ResNet image encoder.
+        Uses only user/item ID embeddings + GNN, which is the primary signal anyway."""
+        seen_items = set()
+        if user_id in self.rec_system.user_history:
+            seen_items = {i['item_id'] for i in self.rec_system.user_history[user_id]}
+        candidate_items = [i for i in range(self.num_items) if i not in seen_items]
+
+        # Pre-extract user embedding once (shape: [1, embed_dim])
+        user_id_t = torch.tensor([user_id], dtype=torch.long)
+        dummy_item = torch.tensor([0], dtype=torch.long)
+        with torch.no_grad():
+            user_emb, _ = self.encoder.user_item_encoder(user_id_t, dummy_item)
+        user_emb = user_emb  # [1, embed_dim]
+
+        all_scores = []
+        for start in range(0, len(candidate_items), batch_size):
+            batch_item_ids = candidate_items[start:start + batch_size]
+            n = len(batch_item_ids)
+            item_ids_t = torch.tensor(batch_item_ids, dtype=torch.long)
+            user_ids_t = torch.tensor([user_id] * n, dtype=torch.long)
+            with torch.no_grad():
+                # Get item embeddings only (fast lookup, no ResNet)
+                _, item_emb = self.encoder.user_item_encoder(user_ids_t, item_ids_t)
+                # Create a fused embedding: concat user repeat + item + zero multimodal vector
+                multimodal_dim = self.encoder.multimodal_encoder.fusion[-1].out_features
+                zero_fused = torch.zeros(n, multimodal_dim)
+                u_repeat = user_emb.expand(n, -1)
+                combined = torch.cat([u_repeat, item_emb, zero_fused], dim=1)
+                final_emb = self.encoder.final_projection(combined)
+                preds, _, _ = self.gnn(user_ids_t, item_ids_t, final_emb)
+                all_scores.extend(zip(batch_item_ids, preds.cpu().tolist()))
+
+        all_scores.sort(key=lambda x: x[1], reverse=True)
+        return [item_id for item_id, _ in all_scores[:top_k]]
+
+
     def test_1_accuracy_metrics(self, k_values: List[int] = [5, 10, 20]) -> Dict:
-        """Test 1: Overall Accuracy Metrics"""
+        """Test 1: Overall Accuracy Metrics using Real Data Split"""
         print("\n" + "="*70)
-        print("TEST 1: OVERALL ACCURACY METRICS")
+        print("TEST 1: OVERALL ACCURACY METRICS (REAL DATA SPLIT)")
         print("="*70)
-        
-        test_interactions = self.generate_test_data(num_test_users=20, interactions_per_user=3)
-        
         results = {k: {'precision': [], 'recall': [], 'ndcg': []} for k in k_values}
-        
-        # Split test data by user
-        user_ground_truth = {}
-        for interaction in test_interactions:
-            user_id = interaction['user_id']
-            if user_id not in user_ground_truth:
-                user_ground_truth[user_id] = []
-            user_ground_truth[user_id].append(interaction['item_id'])
-        
-        # Evaluate for each user
-        for user_id, ground_truth in user_ground_truth.items():
-            # Get recommendations (without trust for baseline)
-            text_features = torch.randn(1, self.text_dim)
-            images = torch.randn(1, 3, 224, 224)
-            
-            recs = self.rec_system.recommend_items_for_user(
-                user_id, top_k=max(k_values), 
-                text_features=text_features, images=images,
-                trust_scores=None
-            )
-            
-            recommended_items = [r['item_id'] for r in recs]
-            
+        if not hasattr(self, 'user_ground_truth') or not self.user_ground_truth:
+            print("No ground truth data available. Skipping test.")
+            return {}
+        test_users = list(self.user_ground_truth.items())[:20]
+        for idx, (user_id, ground_truth) in enumerate(test_users):
+            print(f"  Evaluating user {idx+1}/20 (user_id={user_id})...", flush=True)
+            recommended_items = self.fast_recommend_for_user(user_id, top_k=max(k_values))
             for k in k_values:
-                p, r, n = self.calculate_precision_recall_ndcg(
-                    recommended_items, ground_truth, k
-                )
+                p, r, n = self.calculate_precision_recall_ndcg(recommended_items, ground_truth, k)
                 results[k]['precision'].append(p)
                 results[k]['recall'].append(r)
                 results[k]['ndcg'].append(n)
-        
-        # Calculate averages
         summary = {}
         for k in k_values:
             summary[f'Precision@{k}'] = np.mean(results[k]['precision'])
             summary[f'Recall@{k}'] = np.mean(results[k]['recall'])
             summary[f'NDCG@{k}'] = np.mean(results[k]['ndcg'])
-        
-        # Print results
-        print("\n📊 ACCURACY RESULTS:")
+        print("\n ACCURACY RESULTS:")
         print("-" * 50)
         for metric, value in summary.items():
             print(f"{metric:20s}: {value:.4f}")
-        
         self.results['accuracy'] = summary
         return summary
+
     
     def test_2_trust_impact(self, k: int = 10) -> Dict:
         """Test 2: Impact of Trust-Aware Recommendations"""
         print("\n" + "="*70)
         print("TEST 2: TRUST-AWARE vs NON-TRUST-AWARE COMPARISON")
         print("="*70)
-        
-        test_users = list(range(0, min(30, self.num_users), 3))
-        
+        if not hasattr(self, 'user_ground_truth') or not self.user_ground_truth:
+            return {}
+        test_users = list(self.user_ground_truth.keys())[:15]
         non_trust_scores = []
-        trust_scores = []
-        
-        for user_id in test_users:
-            text_features = torch.randn(1, self.text_dim)
-            images = torch.randn(1, 3, 224, 224)
-            
-            # Non-trust recommendations
-            recs_non_trust = self.rec_system.recommend_items_for_user(
-                user_id, top_k=k, text_features=text_features, images=images,
-                trust_scores=None
-            )
-            avg_score_non_trust = np.mean([r['score'] for r in recs_non_trust])
-            non_trust_scores.append(avg_score_non_trust)
-            
-            # Trust-aware recommendations
-            recs_trust = self.rec_system.get_trust_aware_recommendations(user_id, top_k=k)
-            avg_score_trust = np.mean([r['score'] for r in recs_trust])
-            trust_scores.append(avg_score_trust)
-        
+        trust_scores_list = []
+        for idx, user_id in enumerate(test_users):
+            print(f"  Trust test {idx+1}/15 (user_id={user_id})...", flush=True)
+            seen = {i['item_id'] for i in self.rec_system.user_history.get(user_id, [])}
+            candidates = [i for i in range(self.num_items) if i not in seen]
+            # Pre-compute user embedding once
+            u_t0 = torch.tensor([user_id], dtype=torch.long)
+            d_t0 = torch.tensor([0], dtype=torch.long)
+            with torch.no_grad():
+                u_emb, _ = self.encoder.user_item_encoder(u_t0, d_t0)
+            multimodal_dim = self.encoder.multimodal_encoder.fusion[-1].out_features
+            all_s = []
+            for start in range(0, len(candidates), 256):
+                batch = candidates[start:start+256]
+                n = len(batch)
+                u_t = torch.tensor([user_id]*n, dtype=torch.long)
+                i_t = torch.tensor(batch, dtype=torch.long)
+                with torch.no_grad():
+                    _, i_emb = self.encoder.user_item_encoder(u_t, i_t)
+                    zero_f = torch.zeros(n, multimodal_dim)
+                    combined = torch.cat([u_emb.expand(n, -1), i_emb, zero_f], dim=1)
+                    fe = self.encoder.final_projection(combined)
+                    p, _, _ = self.gnn(u_t, i_t, fe)
+                    all_s.extend(zip(batch, p.cpu().tolist()))
+            all_s.sort(key=lambda x: x[1], reverse=True)
+            non_trust_scores.append(np.mean([s for _, s in all_s[:k]]))
+            # Trust-aware: re-rank with trust adjustment
+            item_trust_scores = {i: self.rec_system.trust_mechanism.get_client_reputation(f"item_{i}")
+                                 for i in range(self.num_items)}
+            trust_adjusted = [(item, score * (0.5 + 0.5 * item_trust_scores.get(item, 1.0)))
+                              for item, score in all_s]
+            trust_adjusted.sort(key=lambda x: x[1], reverse=True)
+            trust_scores_list.append(np.mean([s for _, s in trust_adjusted[:k]]))
         summary = {
             'Non-Trust Avg Score': np.mean(non_trust_scores),
-            'Trust-Aware Avg Score': np.mean(trust_scores),
-            'Improvement': np.mean(trust_scores) - np.mean(non_trust_scores),
-            'Improvement %': ((np.mean(trust_scores) - np.mean(non_trust_scores)) / 
-                            np.mean(non_trust_scores) * 100) if np.mean(non_trust_scores) > 0 else 0
+            'Trust-Aware Avg Score': np.mean(trust_scores_list),
+            'Improvement': np.mean(trust_scores_list) - np.mean(non_trust_scores),
+            'Improvement %': ((np.mean(trust_scores_list) - np.mean(non_trust_scores)) /
+                              np.mean(non_trust_scores) * 100) if np.mean(non_trust_scores) > 0 else 0
         }
-        
-        print("\n📊 TRUST IMPACT RESULTS:")
+        print("\nTRUST IMPACT RESULTS:")
         print("-" * 50)
         print(f"Non-Trust Avg Score    : {summary['Non-Trust Avg Score']:.4f}")
         print(f"Trust-Aware Avg Score  : {summary['Trust-Aware Avg Score']:.4f}")
         print(f"Improvement            : {summary['Improvement']:.4f} ({summary['Improvement %']:.2f}%)")
-        
         self.results['trust_impact'] = summary
         return summary
+
     
     def test_3_cold_start(self, k: int = 10) -> Dict:
         """Test 3: Cold Start Performance (new users with few interactions)"""
@@ -248,8 +322,8 @@ class ResearchEvaluator:
                     )
                 
                 # Get recommendations
-                text_features = torch.randn(1, self.text_dim)
-                images = torch.randn(1, 3, 224, 224)
+                text_features = torch.zeros(1, self.text_dim)
+                images = torch.zeros(1, 3, 224, 224)
                 
                 recs = self.rec_system.recommend_items_for_user(
                     user_id, top_k=k, text_features=text_features, images=images
@@ -273,15 +347,18 @@ class ResearchEvaluator:
         print("TEST 4: DIVERSITY AND COVERAGE ANALYSIS")
         print("="*70)
         
+        if not hasattr(self, 'user_ground_truth') or not self.user_ground_truth:
+            return {}
+        
         all_recommended_items = set()
         category_diversity = []
         intra_list_similarities = []
         
-        test_users = list(range(0, min(50, self.num_users), 2))
+        test_users = list(self.user_ground_truth.keys())[:20]
         
         for user_id in test_users:
-            text_features = torch.randn(1, self.text_dim)
-            images = torch.randn(1, 3, 224, 224)
+            text_features = torch.zeros(1, self.text_dim)
+            images = torch.zeros(1, 3, 224, 224)
             
             recs = self.rec_system.recommend_items_for_user(
                 user_id, top_k=k, text_features=text_features, images=images
@@ -349,8 +426,8 @@ class ResearchEvaluator:
             user_id = np.random.randint(0, self.num_users)
             start = time.time()
             
-            text_features = torch.randn(1, self.text_dim)
-            images = torch.randn(1, 3, 224, 224)
+            text_features = torch.zeros(1, self.text_dim)
+            images = torch.zeros(1, 3, 224, 224)
             
             self.rec_system.recommend_items_for_user(
                 user_id, top_k=10, text_features=text_features, images=images
@@ -374,8 +451,8 @@ class ResearchEvaluator:
             item_id = np.random.randint(0, self.num_items)
             start = time.time()
             
-            text_features = torch.randn(1, self.text_dim)
-            images = torch.randn(1, 3, 224, 224)
+            text_features = torch.zeros(1, self.text_dim)
+            images = torch.zeros(1, 3, 224, 224)
             
             self.rec_system.get_similar_items(item_id, top_k=5, 
                                              text_features=text_features, images=images)

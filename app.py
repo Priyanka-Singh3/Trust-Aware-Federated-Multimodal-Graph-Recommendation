@@ -79,42 +79,90 @@ class InteractionResponse(BaseModel):
 recommendation_system: Optional[RecommendationSystem] = None
 api: Optional[RecommendationAPI] = None
 
+# ── Rich business lookup built once at startup ──────────────────────────────
+_business_by_item_idx: dict = {}   # item_idx (int) -> full business dict
+_photo_by_item_idx:    dict = {}   # item_idx (int) -> photo_id (str)
+
 def load_yelp_business_data():
-    """Load real Yelp business data for recommendations"""
+    """Load real Yelp business data; build item-index → business + photo maps."""
+    global _business_by_item_idx, _photo_by_item_idx
     try:
-        import pandas as pd
-        
-        # Load business data
+        import pandas as pd, torch
+
         business_file = "data/raw/yelp_multimodal_final/business_clean.csv"
-        if os.path.exists(business_file):
-            df_business = pd.read_csv(business_file)
-            
-            # Create item metadata from real businesses
-            item_metadata = {}
-            for idx, row in df_business.iterrows():
-                business_id = row.get('business_id', idx)
-                name = row.get('name', f'Business {idx}')
-                categories = row.get('categories', 'Restaurant')
-                city = row.get('city', 'Unknown')
-                state = row.get('state', 'Unknown')
-                stars = row.get('stars', 0)
-                
-                item_metadata[idx] = {
-                    'name': name,
-                    'category': categories.split(',')[0] if isinstance(categories, str) else 'Restaurant',
-                    'location': f"{city}, {state}",
-                    'rating': f"{stars} stars",
-                    'description': f"{name} - {categories} in {city}, {state} (Rated {stars} stars)"
-                }
-            
-            logger.info(f"Loaded {len(item_metadata)} real Yelp businesses")
-            return item_metadata
-        else:
-            logger.warning("Yelp business data not found")
-            return None
-            
+        photo_file    = "data/raw/yelp_multimodal_final/photo_clean.csv"
+        meta_file     = "data/processed/metadata.pt"
+
+        if not os.path.exists(business_file):
+            logger.warning("Yelp business CSV not found"); return None
+
+        df_biz   = pd.read_csv(business_file)
+        biz_dict = {row['business_id']: row for _, row in df_biz.iterrows()}
+
+        # Build business_id → first photo_id map
+        biz_to_photo: dict = {}
+        if os.path.exists(photo_file):
+            df_photo = pd.read_csv(photo_file)
+            for _, r in df_photo.iterrows():
+                bid = r.get('business_id')
+                pid = r.get('photo_id')
+                if bid and pid and bid not in biz_to_photo:
+                    img_path = f"data/raw/yelp_multimodal_final/images/{pid}.jpg"
+                    if os.path.exists(img_path):
+                        biz_to_photo[bid] = pid
+
+        # Load item_mapping  (business_id -> item_idx)
+        item_mapping: dict = {}
+        if os.path.exists(meta_file):
+            meta = torch.load(meta_file, weights_only=False)
+            item_mapping = meta.get('item_mapping', {})
+
+        # Invert: item_idx -> business_id
+        idx_to_bid = {int(v): k for k, v in item_mapping.items()}
+
+        item_metadata: dict = {}
+        for idx, row in df_biz.iterrows():
+            bid        = row.get('business_id', '')
+            name       = row.get('name', f'Business {idx}')
+            categories = row.get('categories', 'Restaurant')
+            city       = row.get('city', '')
+            state      = row.get('state', '')
+            stars      = float(row.get('stars', 0) or 0)
+            review_cnt = int(row.get('review_count', 0) or 0)
+
+            # find the item_idx for this business
+            item_idx = item_mapping.get(bid)
+            if item_idx is not None:
+                item_idx = int(item_idx)
+            else:
+                item_idx = idx
+
+            photo_id = biz_to_photo.get(bid)
+            photo_url = f"/api/photo/{photo_id}" if photo_id else None
+
+            record = {
+                'business_id': bid,
+                'name':        name,
+                'category':    categories.split(',')[0].strip() if isinstance(categories, str) else 'Restaurant',
+                'categories':  categories if isinstance(categories, str) else 'Restaurant',
+                'city':        city,
+                'state':       state,
+                'stars':       stars,
+                'review_count': review_cnt,
+                'photo_url':   photo_url,
+                'description': f"{categories} in {city}, {state}",
+            }
+            item_metadata[item_idx]       = record
+            _business_by_item_idx[item_idx] = record
+            if photo_id:
+                _photo_by_item_idx[item_idx] = photo_id
+
+        logger.info(f"Loaded {len(item_metadata)} real Yelp businesses, {len(_photo_by_item_idx)} with photos")
+        return item_metadata
+
     except Exception as e:
         logger.error(f"Error loading Yelp data: {e}")
+        import traceback; logger.error(traceback.format_exc())
         return None
 
 def initialize_system():
@@ -280,13 +328,41 @@ async def get_system_info():
     """Get system information"""
     if recommendation_system is None:
         raise HTTPException(status_code=500, detail="Recommendation system not initialized")
-    
     return {
         "num_users": recommendation_system.num_users,
         "num_items": recommendation_system.num_items,
         "trust_enabled": recommendation_system.trust_mechanism is not None,
         "status": "active"
     }
+
+@app.get("/api/business/{item_id}")
+async def get_business(item_id: int):
+    """Return real Yelp business details for a given item index."""
+    biz = _business_by_item_idx.get(item_id)
+    if biz is None:
+        raise HTTPException(status_code=404, detail=f"Business {item_id} not found")
+    return biz
+
+@app.get("/api/photo/{photo_id}")
+async def serve_photo(photo_id: str):
+    """Serve a real Yelp business photo by photo_id."""
+    from fastapi.responses import FileResponse
+    img_path = f"data/raw/yelp_multimodal_final/images/{photo_id}.jpg"
+    if not os.path.exists(img_path):
+        raise HTTPException(status_code=404, detail="Photo not found")
+    return FileResponse(img_path, media_type="image/jpeg")
+
+# ── Alias routes used by the new UI JS ──────────────────────────────────────
+@app.post("/api/recommend")
+async def recommend_alias(request: RecommendationRequest):
+    """Alias for /api/recommendations used by the new UI."""
+    return await get_recommendations(request)
+
+@app.post("/api/similar")
+async def similar_alias(request: SimilarItemsRequest):
+    """Alias for /api/similar-items used by the new UI."""
+    return await get_similar_items(request)
+
 
 # Create directories for templates and static files
 def create_web_files():

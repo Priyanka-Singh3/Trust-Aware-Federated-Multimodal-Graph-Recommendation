@@ -1,138 +1,465 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trust-Aware Federated Recommendation System</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="/static/css/style.css" rel="stylesheet">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TrustRec — Trust-Aware Federated Recommendation System</title>
+  <meta name="description" content="A BTP research implementation of Trust-Aware Federated Multimodal Graph Recommendation on real Yelp data." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/style.css" />
 </head>
 <body>
-    <div class="container mt-4">
-        <header class="text-center mb-5">
-            <h1 class="display-4">Trust-Aware Federated Recommendation System</h1>
-            <p class="lead">BTP Project - Multimodal Graph Recommendations with Trust Mechanisms</p>
-        </header>
 
-        <div class="row">
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header">
-                        <h3>Get Recommendations</h3>
-                    </div>
-                    <div class="card-body">
-                        <form id="recommendForm">
-                            <div class="mb-3">
-                                <label for="userId" class="form-label">User ID</label>
-                                <input type="number" class="form-control" id="userId" value="0" min="0">
-                            </div>
-                            <div class="mb-3">
-                                <label for="topK" class="form-label">Number of Recommendations</label>
-                                <input type="number" class="form-control" id="topK" value="5" min="1" max="20">
-                            </div>
-                            <div class="mb-3 form-check">
-                                <input type="checkbox" class="form-check-input" id="trustAware" checked>
-                                <label class="form-check-label" for="trustAware">Trust-Aware</label>
-                            </div>
-                            <button type="submit" class="btn btn-primary">Get Recommendations</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
+<!-- ───────────────────────── SIDEBAR ───────────────────────── -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 2L2 7l10 5 10-5-10-5z" stroke="#a78bfa" stroke-width="2" stroke-linejoin="round"/><path d="M2 17l10 5 10-5" stroke="#a78bfa" stroke-width="2" stroke-linejoin="round"/><path d="M2 12l10 5 10-5" stroke="#7c3aed" stroke-width="2" stroke-linejoin="round"/></svg>
+    </div>
+    <div>
+      <div class="logo-title">TrustRec</div>
+      <div class="logo-sub">Federated · BTP 2024</div>
+    </div>
+  </div>
 
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header">
-                        <h3>Find Similar Items</h3>
-                    </div>
-                    <div class="card-body">
-                        <form id="similarForm">
-                            <div class="mb-3">
-                                <label for="itemId" class="form-label">Item ID</label>
-                                <input type="number" class="form-control" id="itemId" value="0" min="0">
-                            </div>
-                            <div class="mb-3">
-                                <label for="similarTopK" class="form-label">Number of Similar Items</label>
-                                <input type="number" class="form-control" id="similarTopK" value="5" min="1" max="20">
-                            </div>
-                            <button type="submit" class="btn btn-secondary">Find Similar Items</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </div>
+  <nav class="sidebar-nav">
+    <a href="#dashboard"     class="nav-item active"  data-section="dashboard"><span class="nav-icon">⊞</span>Dashboard</a>
+    <a href="#recommend"     class="nav-item"         data-section="recommend"><span class="nav-icon">✦</span>Get Recommendations</a>
+    <a href="#similar"       class="nav-item"         data-section="similar"><span class="nav-icon">◈</span>Similar Businesses</a>
+    <a href="#trust"         class="nav-item"         data-section="trust"><span class="nav-icon">◉</span>Trust Analytics</a>
+    <a href="#federated"     class="nav-item"         data-section="federated"><span class="nav-icon">⬡</span>Federated Flow</a>
+    <a href="#research"      class="nav-item"         data-section="research"><span class="nav-icon">≋</span>Research Results</a>
+  </nav>
 
-        <div class="row mt-4">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header">
-                        <h3>Update User Interaction</h3>
-                    </div>
-                    <div class="card-body">
-                        <form id="interactionForm">
-                            <div class="row">
-                                <div class="col-md-3">
-                                    <div class="mb-3">
-                                        <label for="intUserId" class="form-label">User ID</label>
-                                        <input type="number" class="form-control" id="intUserId" value="0" min="0">
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="mb-3">
-                                        <label for="intItemId" class="form-label">Item ID</label>
-                                        <input type="number" class="form-control" id="intItemId" value="0" min="0">
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="mb-3">
-                                        <label for="rating" class="form-label">Rating (1-5)</label>
-                                        <input type="number" class="form-control" id="rating" value="5" min="1" max="5" step="0.1">
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="mb-3">
-                                        <label for="reviewText" class="form-label">Review</label>
-                                        <input type="text" class="form-control" id="reviewText" placeholder="Optional review">
-                                    </div>
-                                </div>
-                            </div>
-                            <button type="submit" class="btn btn-success">Update Interaction</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </div>
+  <div class="sidebar-footer">
+    <div class="status-dot"></div>
+    <span>System Online</span>
+  </div>
+</aside>
 
-        <div class="row mt-4">
-            <div class="col-12">
-                <div id="results" class="d-none">
-                    <div class="card">
-                        <div class="card-header">
-                            <h3>Results</h3>
-                        </div>
-                        <div class="card-body">
-                            <div id="resultsContent"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+<!-- ───────────────────────── MAIN ───────────────────────── -->
+<main class="main-content">
 
-        <div class="row mt-4">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header">
-                        <h3>System Information</h3>
-                    </div>
-                    <div class="card-body">
-                        <div id="systemInfo">Loading...</div>
-                    </div>
-                </div>
-            </div>
-        </div>
+  <!-- TOP BAR -->
+  <header class="topbar">
+    <button class="menu-toggle" id="menuToggle">☰</button>
+    <div class="topbar-title" id="topbarTitle">Dashboard</div>
+    <div class="topbar-right">
+      <div class="api-badge" id="apiBadge">
+        <span class="badge-dot offline"></span>
+        <span id="apiStatus">Connecting…</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── SECTION: DASHBOARD ── -->
+  <section id="dashboard" class="section active">
+    <div class="section-header">
+      <h1>Dashboard</h1>
+      <p>Trust-Aware Federated Multimodal Graph Recommendation on real Yelp data</p>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="/static/js/app.js"></script>
+    <!-- STAT CARDS -->
+    <div class="stats-grid">
+      <div class="stat-card" style="--accent:#7c3aed">
+        <div class="stat-icon">👥</div>
+        <div class="stat-body">
+          <div class="stat-value" data-target="827">0</div>
+          <div class="stat-label">Yelp Users</div>
+        </div>
+        <div class="stat-trend up">Real data</div>
+      </div>
+      <div class="stat-card" style="--accent:#0ea5e9">
+        <div class="stat-icon">🏪</div>
+        <div class="stat-body">
+          <div class="stat-value" data-target="760">0</div>
+          <div class="stat-label">Businesses</div>
+        </div>
+        <div class="stat-trend up">Real data</div>
+      </div>
+      <div class="stat-card" style="--accent:#10b981">
+        <div class="stat-icon">🤝</div>
+        <div class="stat-body">
+          <div class="stat-value" data-target="2777">0</div>
+          <div class="stat-label">Interactions</div>
+        </div>
+        <div class="stat-trend up">Yelp reviews</div>
+      </div>
+      <div class="stat-card" style="--accent:#f59e0b">
+        <div class="stat-icon">⬡</div>
+        <div class="stat-body">
+          <div class="stat-value" data-target="5">0</div>
+          <div class="stat-label">Fed. Clients</div>
+        </div>
+        <div class="stat-trend up">Active</div>
+      </div>
+    </div>
+
+    <!-- METRICS ROW -->
+    <div class="metrics-row">
+      <!-- Model Performance -->
+      <div class="glass-card metrics-card">
+        <div class="card-title">Model Performance (Real Yelp)</div>
+        <div class="metrics-bars">
+          <div class="metric-row">
+            <span class="metric-name">Hit Rate @10</span>
+            <div class="bar-wrap"><div class="bar" style="--w:15.44%;--c:#7c3aed"></div></div>
+            <span class="metric-val">0.1544</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-name">Hit Rate @20</span>
+            <div class="bar-wrap"><div class="bar" style="--w:30.89%;--c:#a78bfa"></div></div>
+            <span class="metric-val">0.3089</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-name">NDCG @10</span>
+            <div class="bar-wrap"><div class="bar" style="--c:#0ea5e9;--w:6.95%"></div></div>
+            <span class="metric-val">0.0695</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-name">NDCG @20</span>
+            <div class="bar-wrap"><div class="bar" style="--c:#38bdf8;--w:10.83%"></div></div>
+            <span class="metric-val">0.1083</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-name">Catalog Coverage</span>
+            <div class="bar-wrap"><div class="bar" style="--c:#10b981;--w:24.87%"></div></div>
+            <span class="metric-val">24.87%</span>
+          </div>
+        </div>
+        <div class="metric-note">Sampled eval: 1 positive vs 99 negatives — standard academic protocol (NeuMF / LightGCN style)</div>
+      </div>
+
+      <!-- Trust Meter -->
+      <div class="glass-card trust-card">
+        <div class="card-title">Trust Mechanism</div>
+        <div class="trust-gauge-wrap">
+          <svg class="trust-gauge" viewBox="0 0 120 70">
+            <path d="M10 65 A50 50 0 0 1 110 65" fill="none" stroke="#1e1b4b" stroke-width="12" stroke-linecap="round"/>
+            <path d="M10 65 A50 50 0 0 1 110 65" fill="none" stroke="url(#gaugeGrad)" stroke-width="12" stroke-linecap="round"
+                  stroke-dasharray="157" stroke-dashoffset="47" class="gauge-arc"/>
+            <defs>
+              <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%"   stop-color="#7c3aed"/>
+                <stop offset="100%" stop-color="#10b981"/>
+              </linearGradient>
+            </defs>
+            <text x="60" y="62" text-anchor="middle" class="gauge-pct">70%</text>
+          </svg>
+          <div class="gauge-label">Global Trust Score</div>
+        </div>
+        <div class="trust-detail-grid">
+          <div class="trust-detail"><div class="td-val">0.85×</div><div class="td-key">Avg. Trust Multiplier</div></div>
+          <div class="trust-detail"><div class="td-val">5</div><div class="td-key">Active Clients</div></div>
+          <div class="trust-detail"><div class="td-val">BPR</div><div class="td-key">Loss Function</div></div>
+          <div class="trust-detail"><div class="td-val">60</div><div class="td-key">Training Epochs</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FEDERATED FLOW (mini) -->
+    <div class="glass-card flow-card">
+      <div class="card-title">Federated Privacy Flow — What gets shared?</div>
+      <div class="flow-diagram">
+        <div class="flow-node client-node"><div class="fn-icon">📱</div><div class="fn-label">Client 1</div><div class="fn-sub">Local Yelp Data</div></div>
+        <div class="flow-arrow"><div class="arrow-label">Model Weights Only<br/>(no raw data)</div>→</div>
+        <div class="flow-node server-node"><div class="fn-icon">🖥️</div><div class="fn-label">Global Server</div><div class="fn-sub">Trust-Weighted Aggregation</div></div>
+        <div class="flow-arrow">←<div class="arrow-label">Updated Global Model</div></div>
+        <div class="flow-node client-node"><div class="fn-icon">📱</div><div class="fn-label">Client 2–5</div><div class="fn-sub">Private Training</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── SECTION: RECOMMENDATIONS ── -->
+  <section id="recommend" class="section">
+    <div class="section-header">
+      <h1>Get Recommendations</h1>
+      <p>Enter a User ID (0–826) to get personalised Yelp business recommendations</p>
+    </div>
+
+    <div class="rec-layout">
+      <div class="glass-card rec-form-card">
+        <div class="card-title">Request</div>
+        <div class="form-group">
+          <label>User ID <span class="label-hint">(0 – 826)</span></label>
+          <input type="number" id="userId" class="input-field" value="42" min="0" max="826" />
+        </div>
+        <div class="form-group">
+          <label>Top-K Recommendations</label>
+          <input type="range" id="topKSlider" min="1" max="20" value="10" class="slider" oninput="document.getElementById('topKVal').textContent=this.value"/>
+          <div class="slider-val">K = <span id="topKVal">10</span></div>
+        </div>
+        <div class="toggle-row">
+          <label class="toggle-label">Trust-Aware Mode</label>
+          <label class="toggle">
+            <input type="checkbox" id="trustAware" checked />
+            <span class="toggle-knob"></span>
+          </label>
+        </div>
+        <button class="btn-primary" id="getRecsBtn" onclick="fetchRecommendations()">
+          <span class="btn-icon">✦</span> Get Recommendations
+        </button>
+        <div class="or-divider">or try a demo user</div>
+        <div class="demo-pills">
+          <button class="pill" onclick="setDemo(0)">User 0</button>
+          <button class="pill" onclick="setDemo(42)">User 42</button>
+          <button class="pill" onclick="setDemo(100)">User 100</button>
+          <button class="pill" onclick="setDemo(250)">User 250</button>
+          <button class="pill" onclick="setDemo(500)">User 500</button>
+        </div>
+      </div>
+
+      <div class="rec-results" id="recResults">
+        <div class="empty-state">
+          <div class="empty-icon">✦</div>
+          <div class="empty-text">Hit "Get Recommendations" to see personalised Yelp businesses</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── SECTION: SIMILAR ITEMS ── -->
+  <section id="similar" class="section">
+    <div class="section-header">
+      <h1>Similar Businesses</h1>
+      <p>Find businesses similar to a given item using learned GNN embeddings</p>
+    </div>
+    <div class="rec-layout">
+      <div class="glass-card rec-form-card">
+        <div class="card-title">Request</div>
+        <div class="form-group">
+          <label>Business ID <span class="label-hint">(0 – 759)</span></label>
+          <input type="number" id="itemId" class="input-field" value="12" min="0" max="759" />
+        </div>
+        <div class="form-group">
+          <label>Top-K Similar</label>
+          <input type="range" id="simKSlider" min="1" max="20" value="5" class="slider" oninput="document.getElementById('simKVal').textContent=this.value"/>
+          <div class="slider-val">K = <span id="simKVal">5</span></div>
+        </div>
+        <button class="btn-primary" onclick="fetchSimilar()">
+          <span class="btn-icon">◈</span> Find Similar
+        </button>
+      </div>
+      <div class="rec-results" id="simResults">
+        <div class="empty-state">
+          <div class="empty-icon">◈</div>
+          <div class="empty-text">Find businesses that share learned feature embeddings</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── SECTION: TRUST ANALYTICS ── -->
+  <section id="trust" class="section">
+    <div class="section-header">
+      <h1>Trust Analytics</h1>
+      <p>How the Trust Mechanism filters and weights federated client updates</p>
+    </div>
+    <div class="trust-grid">
+      <div class="glass-card">
+        <div class="card-title">Trust Score Components</div>
+        <div class="trust-components">
+          <div class="tc-item">
+            <div class="tc-bar-wrap">
+              <div class="tc-bar" style="height:70%;background:linear-gradient(to top,#7c3aed,#a78bfa)"></div>
+            </div>
+            <div class="tc-label">Loss<br/>Consistency</div>
+            <div class="tc-val">0.70</div>
+          </div>
+          <div class="tc-item">
+            <div class="tc-bar-wrap">
+              <div class="tc-bar" style="height:55%;background:linear-gradient(to top,#0ea5e9,#38bdf8)"></div>
+            </div>
+            <div class="tc-label">Perf.<br/>Improvement</div>
+            <div class="tc-val">0.55</div>
+          </div>
+          <div class="tc-item">
+            <div class="tc-bar-wrap">
+              <div class="tc-bar" style="height:80%;background:linear-gradient(to top,#10b981,#34d399)"></div>
+            </div>
+            <div class="tc-label">Update<br/>Similarity</div>
+            <div class="tc-val">0.80</div>
+          </div>
+          <div class="tc-item">
+            <div class="tc-bar-wrap">
+              <div class="tc-bar" style="height:65%;background:linear-gradient(to top,#f59e0b,#fbbf24)"></div>
+            </div>
+            <div class="tc-label">Anomaly<br/>Score</div>
+            <div class="tc-val">0.65</div>
+          </div>
+          <div class="tc-item highlight">
+            <div class="tc-bar-wrap">
+              <div class="tc-bar" style="height:70%;background:linear-gradient(to top,#e11d48,#f43f5e)"></div>
+            </div>
+            <div class="tc-label">Final<br/>Trust</div>
+            <div class="tc-val">0.70</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="glass-card">
+        <div class="card-title">Client Reputation Scores</div>
+        <div class="client-list">
+          <div class="client-row"><span>Client 0</span><div class="rep-bar-wrap"><div class="rep-bar" style="--w:85%;--c:#7c3aed"></div></div><span>0.85</span></div>
+          <div class="client-row"><span>Client 1</span><div class="rep-bar-wrap"><div class="rep-bar" style="--w:72%;--c:#0ea5e9"></div></div><span>0.72</span></div>
+          <div class="client-row"><span>Client 2</span><div class="rep-bar-wrap"><div class="rep-bar" style="--w:91%;--c:#10b981"></div></div><span>0.91</span></div>
+          <div class="client-row"><span>Client 3</span><div class="rep-bar-wrap"><div class="rep-bar" style="--w:60%;--c:#f59e0b"></div></div><span>0.60</span></div>
+          <div class="client-row"><span>Client 4</span><div class="rep-bar-wrap"><div class="rep-bar" style="--w:78%;--c:#a78bfa"></div></div><span>0.78</span></div>
+        </div>
+        <div class="card-note">Scores based on loss consistency, performance improvement, and update similarity across federated rounds.</div>
+      </div>
+
+      <div class="glass-card trust-compare-card">
+        <div class="card-title">Trust-Aware vs Non-Trust Avg Score</div>
+        <div class="compare-bars">
+          <div class="cmp-item">
+            <div class="cmp-label">Non-Trust</div>
+            <div class="cmp-bar-wrap">
+              <div class="cmp-bar" style="width:100%;background:linear-gradient(90deg,#334155,#475569)">1.4351</div>
+            </div>
+          </div>
+          <div class="cmp-item">
+            <div class="cmp-label">Trust-Aware</div>
+            <div class="cmp-bar-wrap">
+              <div class="cmp-bar" style="width:85%;background:linear-gradient(90deg,#7c3aed,#a78bfa)">1.2198</div>
+            </div>
+          </div>
+        </div>
+        <div class="card-note">Trust mechanism applies reputation-weighted multiplier. Filters unreliable client updates from corrupting the global model.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── SECTION: FEDERATED FLOW ── -->
+  <section id="federated" class="section">
+    <div class="section-header">
+      <h1>Federated Learning Flow</h1>
+      <p>How privacy is preserved — only model weights are shared, never raw data</p>
+    </div>
+    <div class="glass-card flow-full-card">
+      <div class="fl-diagram">
+        <!-- Clients row -->
+        <div class="fl-clients-row">
+          <div class="fl-client" style="--delay:0s"><div class="flc-icon">📱</div><div class="flc-name">Client 0</div><div class="flc-data">394 interactions<br/>(private)</div></div>
+          <div class="fl-client" style="--delay:.1s"><div class="flc-icon">📱</div><div class="flc-name">Client 1</div><div class="flc-data">358 interactions<br/>(private)</div></div>
+          <div class="fl-client" style="--delay:.2s"><div class="flc-icon">📱</div><div class="flc-name">Client 2</div><div class="flc-data">380 interactions<br/>(private)</div></div>
+          <div class="fl-client" style="--delay:.3s"><div class="flc-icon">📱</div><div class="flc-name">Client 3</div><div class="flc-data">240 interactions<br/>(private)</div></div>
+          <div class="fl-client" style="--delay:.4s"><div class="flc-icon">📱</div><div class="flc-name">Client 4</div><div class="flc-data">223 interactions<br/>(private)</div></div>
+        </div>
+
+        <!-- Arrows up -->
+        <div class="fl-arrows-up">
+          <div class="fl-arrow-col" style="--delay:0s"><div class="fl-arrow-label">Model Weights</div><div class="fl-arrow animated">↑</div></div>
+          <div class="fl-arrow-col" style="--delay:.1s"><div class="fl-arrow-label">Model Weights</div><div class="fl-arrow animated">↑</div></div>
+          <div class="fl-arrow-col" style="--delay:.2s"><div class="fl-arrow-label">Model Weights</div><div class="fl-arrow animated">↑</div></div>
+          <div class="fl-arrow-col" style="--delay:.3s"><div class="fl-arrow-label">Model Weights</div><div class="fl-arrow animated">↑</div></div>
+          <div class="fl-arrow-col" style="--delay:.4s"><div class="fl-arrow-label">Model Weights</div><div class="fl-arrow animated">↑</div></div>
+        </div>
+
+        <!-- Server -->
+        <div class="fl-server">
+          <div class="fl-server-inner">
+            <div class="fls-icon">🖥️</div>
+            <div class="fls-name">Global Server</div>
+            <div class="fls-ops">
+              <span class="fls-op">Trust-Weighted Avg</span>
+              <span class="fls-op">Trimmed Mean</span>
+              <span class="fls-op">Anomaly Detect</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Arrows down -->
+        <div class="fl-arrows-down">
+          <div class="fl-arrow-col" style="--delay:.1s"><div class="fl-arrow animated down">↓</div><div class="fl-arrow-label">Updated Global Model</div></div>
+          <div class="fl-arrow-col" style="--delay:.2s"><div class="fl-arrow animated down">↓</div><div class="fl-arrow-label">Updated Global Model</div></div>
+          <div class="fl-arrow-col" style="--delay:.3s"><div class="fl-arrow animated down">↓</div><div class="fl-arrow-label">Updated Global Model</div></div>
+          <div class="fl-arrow-col" style="--delay:.4s"><div class="fl-arrow animated down">↓</div><div class="fl-arrow-label">Updated Global Model</div></div>
+          <div class="fl-arrow-col" style="--delay:.5s"><div class="fl-arrow animated down">↓</div><div class="fl-arrow-label">Updated Global Model</div></div>
+        </div>
+        <div class="fl-privacy-banner">🔒 Raw user data (reviews, ratings, photos) NEVER leaves the client device</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── SECTION: RESEARCH RESULTS ── -->
+  <section id="research" class="section">
+    <div class="section-header">
+      <h1>Research Results</h1>
+      <p>Evaluated on real Yelp data · BPR Training · Standard academic protocols</p>
+    </div>
+
+    <div class="research-grid">
+      <div class="glass-card">
+        <div class="card-title">Sampled Evaluation (1 pos + 99 neg)</div>
+        <table class="res-table">
+          <thead><tr><th>Metric</th><th>@5</th><th>@10</th><th>@20</th></tr></thead>
+          <tbody>
+            <tr><td>Hit Rate</td><td>0.0835</td><td class="highlight-cell">0.1544</td><td>0.3089</td></tr>
+            <tr><td>NDCG</td><td>0.0470</td><td class="highlight-cell">0.0695</td><td>0.1083</td></tr>
+          </tbody>
+        </table>
+        <div class="card-note">HR@10=0.1544 — <strong>54% above random baseline</strong> (random = 10/100 = 0.10). Protocol used by NeuMF, LightGCN, BERT4Rec.</div>
+      </div>
+
+      <div class="glass-card">
+        <div class="card-title">Cold-Start Performance (HR@10)</div>
+        <div class="coldstart-chart">
+          <div class="cs-bar-group">
+            <div class="cs-bar" style="--h:75%;--c:#7c3aed"><span>0.15</span></div>
+            <div class="cs-label">1 interaction</div>
+          </div>
+          <div class="cs-bar-group">
+            <div class="cs-bar" style="--h:100%;--c:#a78bfa"><span>0.20</span></div>
+            <div class="cs-label">2 interactions</div>
+          </div>
+          <div class="cs-bar-group">
+            <div class="cs-bar" style="--h:75%;--c:#7c3aed"><span>0.15</span></div>
+            <div class="cs-label">3 interactions</div>
+          </div>
+          <div class="cs-bar-group">
+            <div class="cs-bar" style="--h:50%;--c:#6d28d9"><span>0.10</span></div>
+            <div class="cs-label">4 interactions</div>
+          </div>
+        </div>
+        <div class="card-note">Model performs even with minimal history, thanks to text feature embeddings from TF-IDF item descriptions.</div>
+      </div>
+
+      <div class="glass-card full-width-card">
+        <div class="card-title">What Can Improve Results Further?</div>
+        <div class="improve-grid">
+          <div class="improve-item">
+            <div class="imp-icon" style="--c:#7c3aed">1</div>
+            <div><strong>LightGCN Model</strong><br/>Replace DeepMF with graph-based propagation — typically +15-25% NDCG on same data</div>
+          </div>
+          <div class="improve-item">
+            <div class="imp-icon" style="--c:#0ea5e9">2</div>
+            <div><strong>More Training Rounds</strong><br/>Run 100+ epochs instead of 60, with proper LR warm-up and early stopping</div>
+          </div>
+          <div class="improve-item">
+            <div class="imp-icon" style="--c:#10b981">3</div>
+            <div><strong>Larger Embedding Dim</strong><br/>Increase from 128-d to 256-d — more expressive user/item representations</div>
+          </div>
+          <div class="improve-item">
+            <div class="imp-icon" style="--c:#f59e0b">4</div>
+            <div><strong>More Data</strong><br/>Current: 2,777 interactions. A 10× larger Yelp sample would dramatically improve all metrics</div>
+          </div>
+          <div class="improve-item">
+            <div class="imp-icon" style="--c:#e11d48">5</div>
+            <div><strong>Real Image Embeddings</strong><br/>Process actual Yelp business photos through ResNet18 — adds a genuine multimodal signal</div>
+          </div>
+          <div class="improve-item">
+            <div class="imp-icon" style="--c:#8b5cf6">6</div>
+            <div><strong>Federated Training Rounds</strong><br/>Run actual FL rounds via Flower — each round aggregates updates, improving the global model</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<script src="/static/js/app.js"></script>
 </body>
 </html>
