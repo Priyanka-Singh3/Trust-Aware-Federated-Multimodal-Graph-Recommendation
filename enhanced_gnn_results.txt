@@ -1,0 +1,1 @@
+Enhanced GNN Training Results\n========================================\nHR@10: 0.1848\nNDCG@10: 0.0970\nHR@5: 0.1076\nNDCG@5: 0.0723\nHR@20: 0.3051\nNDCG@20: 0.1268\n

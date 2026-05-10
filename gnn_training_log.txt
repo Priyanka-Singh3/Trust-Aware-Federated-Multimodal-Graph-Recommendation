@@ -1,0 +1,92 @@
+/Users/priyankasingh/Documents/BTP-8/venv/lib/python3.9/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020
+  warnings.warn(
+======================================================================
+MULTIMODAL FEDERATED RECOMMENDATION  |  TEXT + REAL YELP IMAGES
+======================================================================
+Found 5 client files
+Dataset: 827 users,  760 items
+Total interactions: 2777
+✅ Image features loaded for 760 / 760 items  (100.0% coverage)
+Split → Train: 1987,  Test: 790
+
+Model: BipartiteGraphRecommender (GNN)  |  Parameters: 1,328,385
+  Architecture: GraphSAGE (2 layers) with bipartite graph structure
+  Multimodal features integrated via node embeddings
+  Items with real photos: 760/760  (100.0% multimodal, rest text-only)
+
+
+Multimodal BPR Training
+  Interactions : 1987  |  Epochs: 200
+  Items with real Yelp photos : 760 / 760
+  Epoch  10/200  |  BPR Loss: 0.4711
+  Epoch  20/200  |  BPR Loss: 0.3197
+  Epoch  30/200  |  BPR Loss: 0.3133
+  Epoch  40/200  |  BPR Loss: 0.3133
+  Epoch  50/200  |  BPR Loss: 0.3140
+  Epoch  60/200  |  BPR Loss: 0.3162
+  Epoch  70/200  |  BPR Loss: 0.3133
+  Epoch  80/200  |  BPR Loss: 0.3133
+  Epoch  90/200  |  BPR Loss: 0.3133
+  Epoch 100/200  |  BPR Loss: 0.3133
+  Epoch 110/200  |  BPR Loss: 0.3133
+  Epoch 120/200  |  BPR Loss: 0.3133
+  Epoch 130/200  |  BPR Loss: 0.3133
+  Epoch 140/200  |  BPR Loss: 0.3133
+  Epoch 150/200  |  BPR Loss: 0.3133
+  Epoch 160/200  |  BPR Loss: 0.3133
+  Epoch 170/200  |  BPR Loss: 0.3133
+  Epoch 180/200  |  BPR Loss: 0.3133
+  Epoch 190/200  |  BPR Loss: 0.3133
+  Epoch 200/200  |  BPR Loss: 0.3133
+Training complete.
+
+Evaluating 790 users  (sampled protocol: 1 pos + 99 neg) ...
+
+Running full-ranking evaluation (all 760 items) on 50 users ...
+
+=================================================================
+MULTIMODAL RESULTS (Text + Real Yelp Images)  |  SAMPLED EVAL
+=================================================================
+Metric                           @5       @10       @20
+-------------------------------------------------------
+Hit Rate @5                  0.0671
+NDCG @5                      0.0412
+
+Hit Rate @10                 0.1342
+NDCG @10                     0.0626
+
+Hit Rate @20                 0.2266
+NDCG @20                     0.0859
+
+=================================================================
+FULL-RANKING RESULTS  (1 relevant item vs all items)
+=================================================================
+Metric                      @5       @10       @20
+--------------------------------------------------
+PRECISION               0.0000    0.0000    0.0000
+RECALL                  0.0000    0.0000    0.0000
+NDCG                    0.0739    0.0739    0.0739
+=================================================================
+
+=================================================================
+TRUST-AWARE vs NON-TRUST-AWARE COMPARISON
+=================================================================
+Non-Trust Avg Score    : 0.0750
+Trust-Aware Avg Score  : 0.0638
+Change                 : -15.0% (trust filters low-rep clients)
+
+=================================================================
+COLD-START: HR@10 vs number of user interactions
+=================================================================
+  1 train interactions   HR@10: 0.0000  (20 users)
+  2 train interactions   HR@10: 0.2500  (20 users)
+  3 train interactions   HR@10: 0.2000  (20 users)
+  4 train interactions   HR@10: 0.1000  (20 users)
+  5+ train interactions   HR@10: 0.2500  (20 users)
+
+=================================================================
+DIVERSITY & CATALOG COVERAGE
+=================================================================
+  Catalog Coverage (@10, 50 users): 8.82%
+  Unique items recommended        : 67 / 760
+=================================================================

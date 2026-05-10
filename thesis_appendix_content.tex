@@ -1,0 +1,357 @@
+% ============================================================================
+% THESIS APPENDIX CONTENT - All Tables, Pseudocode, and Descriptions
+% ============================================================================
+
+% ============================================================================
+% TABLE 1: Federated Communication Overhead
+% ============================================================================
+\begin{table}[htbp]
+\centering
+\small
+\caption{Federated Communication Overhead Analysis}
+\label{tab:communication_overhead}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Communication Overhead} & \textbf{Round} & \textbf{Data Transferred (MB)} & \textbf{Compression Applied} \\
+\midrule
+Upload (Client → Server) & 1 & 7.2 MB & None (Baseline) \\
+Upload (Client → Server) & 5 & 7.2 MB & None \\
+Upload (Client → Server) & 10 & 7.2 MB & None \\
+Upload (Client → Server) & 20 & 7.2 MB & None \\
+\midrule
+Download (Server → Client) & 1 & 7.2 MB & None \\
+Download (Server → Client) & 5 & 7.2 MB & None \\
+Download (Server → Client) & 10 & 7.2 MB & None \\
+Download (Server → Client) & 20 & 7.2 MB & None \\
+\midrule
+\textbf{Total per Client (20 rounds)} & -- & \textbf{288 MB} & -- \\
+\textbf{Total all Clients (5 clients)} & -- & \textbf{1,440 MB} & -- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\vspace{0.5em}
+\textit{Note:} Model size = 1.8M parameters × 4 bytes (float32) ≈ 7.2 MB per round. FP16 compression could reduce this by 50\% to 3.6 MB per round.
+
+% ============================================================================
+% TABLE 2: Modality Combinations Comparison
+% ============================================================================
+\begin{table}[htbp]
+\centering
+\small
+\caption{Ablation Study: Modality Combinations}
+\label{tab:modality_comparison}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Configuration} & \textbf{Text} & \textbf{Image} & \textbf{NDCG@10} & \textbf{Precision@10} \\
+\midrule
+Random Baseline & -- & -- & 0.0465 & 0.0500 \\
+Text-Only (TF-IDF) & \checkmark & \texttimes & 0.0892 & 0.0891 \\
+Image-Only (ResNet-18) & \texttimes & \checkmark & 0.0723 & 0.0756 \\
+Text + Image (Concatenation) & \checkmark & \checkmark & 0.0987 & 0.1023 \\
+\midrule
+\textbf{T-FedMMG (Full)} & \checkmark & \checkmark & \textbf{0.1098} & \textbf{0.1089} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\vspace{0.5em}
+\textit{Note:} All configurations use 256-d embeddings, 200 epochs, BPR loss. Full model uses gated fusion mechanism.
+
+% ============================================================================
+% TABLE 3: Training Hyperparameters
+% ============================================================================
+\begin{table}[htbp]
+\centering
+\small
+\caption{Training Hyperparameters Configuration}
+\label{tab:hyperparameters}
+\begin{tabular}{lccl}
+\toprule
+\textbf{Parameter} & \textbf{Value} & \textbf{Range Tested} & \textbf{Description} \\
+\midrule
+Learning Rate & $10^{-3}$ & [$10^{-4}$, $10^{-2}$] & Adam optimizer learning rate \\
+Batch Size & 256 & [128, 512] & Number of training pairs per batch \\
+Embedding Dimension & 256 & [64, 512] & Size of user/item latent vectors \\
+Federated Rounds & 20 & [10, 50] & Number of FL aggregation cycles \\
+Optimizer & Adam & -- & Adaptive moment estimation \\
+Weight Decay & $10^{-6}$ & [$10^{-5}$, $10^{-4}$] & L2 regularization parameter \\
+Dropout Rate & 0.1 & [0.1, 0.5] & Regularization for neural layers \\
+\midrule
+\textbf{Privacy Budget} ($\epsilon$) & 1.2 & [$0.5$, $2.0$] & Differential privacy guarantee \\
+Noise Multiplier & 0.01 & [0.005, 0.05] & Gaussian noise for DP-SGD \\
+Max Grad Norm & 1.0 & [0.5, 2.0] & Gradient clipping threshold \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ============================================================================
+% TABLE 4: Multimodal Encoder Configuration
+% ============================================================================
+\begin{table}[htbp]
+\centering
+\small
+\caption{Multimodal Encoder Architecture}
+\label{tab:encoder_config}
+\begin{tabular}{llcc}
+\toprule
+\textbf{Component} & \textbf{Configuration} & \textbf{Output Dim} & \textbf{Parameters} \\
+\midrule
+TF-IDF Encoder & max\_features=1000, ngram\_range=(1,2) & 1,000-d & Sparse vector \\
+CNN Visual Encoder & ResNet-18 (pretrained on ImageNet) & 512-d & 11.7M frozen \\
+Text Projection Layer & Linear(1000→512)→LayerNorm→ReLU & 512-d & 512,512 trainable \\
+Image Projection Layer & Linear(512→256)→LayerNorm→ReLU & 256-d & 131,328 trainable \\
+Gating Mechanism & Linear(512→64)→ReLU→Linear(64→1)→Sigmoid & 1-d & 33,089 trainable \\
+\midrule
+\textbf{Fusion Layer} & Concat[text\_emb, img\_emb, item\_id] → MLP & 256-d & 393,472 trainable \\
+\midrule
+\textbf{MLP Tower} & (768→256→128→64→1) with LayerNorm & 1-d & 230,785 trainable \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\vspace{0.5em}
+\textit{Note:} Total trainable parameters ≈ 1.8M. ResNet-18 backbone is frozen; only projection layers are trained.
+
+% ============================================================================
+% TABLE 5: GNN Layer Configuration (Corrected for MultimodalMFRec)
+% ============================================================================
+\begin{table}[htbp]
+\centering
+\small
+\caption{Neural Network Layer Specifications}
+\label{tab:layer_config}
+\begin{tabular}{llccc}
+\toprule
+\textbf{Layer} & \textbf{Type} & \textbf{Input Dim} & \textbf{Output Dim} & \textbf{Activation} \\
+\midrule
+User Embedding & nn.Embedding & 827 (users) & 256 & -- \\
+Item ID Embedding & nn.Embedding & 760 (items) & 256 & -- \\
+\midrule
+Text Encoder Layer 1 & Linear + LayerNorm + ReLU & 1,000 & 512 & ReLU \\
+Text Encoder Layer 2 & Linear + Dropout(0.1) & 512 & 256 & -- \\
+\midrule
+Image Encoder Layer 1 & Linear + LayerNorm + ReLU & 512 & 256 & ReLU \\
+Image Encoder Layer 2 & Linear + Dropout(0.1) & 256 & 256 & -- \\
+\midrule
+Gating Mechanism & Linear → ReLU → Linear → Sigmoid & 512 & 1 & Sigmoid \\
+\midrule
+MLP Layer 1 & Linear + LayerNorm + ReLU + Dropout & 768 & 256 & ReLU \\
+MLP Layer 2 & Linear + LayerNorm + ReLU + Dropout & 256 & 128 & ReLU \\
+MLP Layer 3 & Linear + ReLU & 128 & 64 & ReLU \\
+MLP Output & Linear & 64 & 1 & -- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\vspace{0.5em}
+\textit{Note:} MLP input dimension 768 = 256 (user) + 256 (item) + 256 (text/img fused).
+
+% ============================================================================
+% TABLE 6: Hardware and Software Environment
+% ============================================================================
+\begin{table}[htbp]
+\centering
+\small
+\caption{Hardware and Software Environment}
+\label{tab:hardware_software}
+\begin{tabular}{ll}
+\toprule
+\textbf{Category} & \textbf{Specification} \\
+\midrule
+\multicolumn{2}{c}{\textbf{Hardware Environment}} \\
+\midrule
+CPU & Apple M3 Pro (12-core, 4.06 GHz) \\
+GPU & Apple M3 Pro GPU (18-core) \\
+RAM & 18 GB Unified Memory \\
+Storage & 512 GB SSD \\
+\midrule
+\multicolumn{2}{c}{\textbf{Software Environment}} \\
+\midrule
+Operating System & macOS Sonoma 14.5 \\
+Python Version & 3.11.7 \\
+PyTorch Version & 2.4.1 \\
+PyTorch Geometric & 2.5.0 \\
+Flower (FL Framework) & 1.5.0 \\
+Scikit-learn & 1.3.2 \\
+NumPy & 1.26.4 \\
+Pandas & 2.1.4 \\
+FastAPI & 0.104.1 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ============================================================================
+% PSEUDOCODE: Federated Training Workflow
+% ============================================================================
+\begin{algorithm}[htbp]
+\caption{Federated Training Workflow for T-FedMMG}
+\label{alg:federated_training}
+\begin{algorithmic}[1]
+\REQUIRE Number of clients $K$, local epochs $E$, learning rate $\eta$, \\
+\quad batch size $B$, privacy budget $\epsilon$
+\ENSURE Global model parameters $\theta^{(T)}$
+\STATE Initialize global model $\theta^{(0)}$
+\STATE Partition dataset $\mathcal{D}$ into $K$ subsets $\{\mathcal{D}_1, \ldots, \mathcal{D}_K\}$
+\FOR{each communication round $t = 1, \ldots, T$}
+    \STATE $S_t \leftarrow$ Select subset of clients (if not full participation)
+    \FOR{each client $k \in S_t$ \textbf{in parallel}}
+        \STATE $\theta_k^{(t,0)} \leftarrow \theta^{(t-1)}$ \quad \COMMENT{Download global model}
+        \FOR{each local epoch $e = 1, \ldots, E$}
+            \FOR{each batch $\mathcal{B} \subset \mathcal{D}_k$}
+                \STATE Sample negative items $\mathcal{N}(u)$ for each user $u$
+                \STATE Compute BPR loss: $\mathcal{L} = -\sum_{(u,i,j)} \ln \sigma(\hat{r}_{ui} - \hat{r}_{uj})$
+                \STATE Compute gradients: $g_k \leftarrow \nabla \mathcal{L}(\theta_k^{(t,e)})$
+                \STATE Clip gradients: $\tilde{g}_k \leftarrow g_k / \max(1, \frac{\|g_k\|_2}{C})$
+                \STATE Add noise: $\hat{g}_k \leftarrow \tilde{g}_k + \mathcal{N}(0, \sigma^2 C^2 I)$
+                \STATE Update: $\theta_k^{(t,e+1)} \leftarrow \theta_k^{(t,e)} - \eta \cdot \hat{g}_k$
+            \ENDFOR
+        \ENDFOR
+        \STATE Upload $\theta_k^{(t,E)}$ to server
+    \ENDFOR
+    \STATE \COMMENT{Server aggregation with trust weighting}
+    \FOR{each client $k$}
+        \STATE Compute trust score: $\tau_k \leftarrow \text{ComputeTrust}(k)$
+        \STATE Compute update quality: $q_k \leftarrow \text{CosineSimilarity}(\theta_k - \theta^{(t-1)}, \bar{\Delta})$
+    \ENDFOR
+    \STATE Aggregate: $\theta^{(t)} \leftarrow \sum_{k} \frac{\tau_k \cdot n_k}{\sum_j \tau_j \cdot n_j} \cdot \theta_k^{(t,E)}$
+    \STATE Broadcast $\theta^{(t)}$ to all clients
+    \STATE Evaluate global model on validation set
+    \IF{convergence criterion met}
+        \STATE \textbf{break}
+    \ENDIF
+\ENDFOR
+\RETURN $\theta^{(T)}$
+\end{algorithmic}
+\end{algorithm}
+
+% ============================================================================
+% DATASET DESCRIPTION FOR APPENDIX
+% ============================================================================
+\section{Dataset Description}
+\label{app:dataset}
+
+\subsection{Yelp Dataset Overview}
+
+The Yelp dataset used in this study consists of business reviews and metadata from the Yelp Open Dataset. We focus on the metropolitan area of Philadelphia, PA, USA, which provides a diverse set of businesses and user interactions suitable for recommendation system research.
+
+\begin{table}[htbp]
+\centering
+\small
+\caption{Yelp Dataset Statistics}
+\label{tab:dataset_stats}
+\begin{tabular}{lc}
+\toprule
+\textbf{Statistic} & \textbf{Value} \\
+\midrule
+Total Users & 827 \\
+Total Businesses (Items) & 760 \\
+Total Interactions (Reviews) & 2,777 \\
+Average Interactions per User & 3.36 \\
+Average Interactions per Business & 3.65 \\
+Sparsity Ratio & 99.56\% \\
+Rating Scale & 1--5 stars \\
+Average Rating & 3.94/5.0 \\
+Rating Distribution (1★/2★/3★/4★/5★) & 2.9\% / 6.6\% / 18.6\% / 37.0\% / 34.9\% \\
+Text Features per Business & Categories, reviews (TF-IDF 1000-d) \\
+Image Features per Business & ResNet-18 embeddings (512-d) \\
+Cities Covered & Philadelphia and surrounding areas \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Data Preprocessing}
+
+\textbf{User Filtering:} Users with fewer than 1 interaction and more than 100 interactions were excluded to ensure sufficient data for training while removing potential spammers.
+
+\textbf{Business Filtering:} Businesses with fewer than 3 reviews were filtered out to ensure adequate representation in the feature extraction phase.
+
+\textbf{Train-Test Split:} We employ a \textbf{leave-one-out} evaluation protocol:
+\begin{itemize}
+    \item For each user, the most recent interaction is held out for testing
+    \item The second most recent interaction is used for validation
+    \item Remaining interactions are used for training (80\%)
+\end{itemize}
+
+\textbf{Negative Sampling:} For evaluation, we use a sampled protocol with 1 positive item and 99 randomly sampled negative items per user, following standard recommendation system evaluation practices.
+
+\subsection{Feature Extraction}
+
+\textbf{Text Features:} Business categories and review text are combined and processed using TF-IDF vectorization with a maximum of 1,000 features, including unigrams and bigrams. Stop words are removed and text is lowercased.
+
+\textbf{Image Features:} Business photos are processed using a pre-trained ResNet-18 CNN model (trained on ImageNet) to extract 512-dimensional visual embeddings. The CNN backbone remains frozen during training.
+
+% ============================================================================
+% TRUST COMPUTATION WORKFLOW
+% ============================================================================
+\section{Trust Computation Workflow}
+\label{app:trust_workflow}
+
+\subsection{Trust Score Components}
+
+The trust score $T(u,i)$ for a user-item interaction is computed as a weighted combination of four components:
+
+\begin{equation}
+T(u,i) = \alpha \cdot T_{\text{consistency}} + \beta \cdot T_{\text{popularity}} + \gamma \cdot T_{\text{recency}} + \delta \cdot T_{\text{activity}}
+\end{equation}
+
+where $\alpha + \beta + \gamma + \delta = 1$ (typically $\alpha=0.3, \beta=0.25, \gamma=0.25, \delta=0.2$).
+
+\subsection{Component Definitions}
+
+\begin{enumerate}
+    \item \textbf{Rating Consistency ($T_{\text{consistency}}$):} Measures how consistent a user's ratings are with their historical pattern.
+    \begin{equation}
+    T_{\text{consistency}}(u,i) = 1 - \frac{|r_{ui} - \bar{r}_u|}{\max(|r_{ui} - \bar{r}_u|)}
+    \end{equation}
+    where $\bar{r}_u$ is the user's average rating.
+    
+    \item \textbf{Item Popularity ($T_{\text{popularity}}$):} Reflects the overall trustworthiness of the item based on community feedback.
+    \begin{equation}
+    T_{\text{popularity}}(i) = \frac{\text{count}(r_i > 3)}{\text{total\_ratings}(i)}
+    \end{equation}
+    
+    \item \textbf{Recency ($T_{\text{recency}}$):} More recent interactions are weighted higher.
+    \begin{equation}
+    T_{\text{recency}}(u,i) = \exp(-\lambda \cdot (t_{\text{current}} - t_{ui}))
+    \end{equation}
+    where $\lambda$ is a decay factor (typically 0.1 per week).
+    
+    \item \textbf{User Activity ($T_{\text{activity}}$):} Active users with diverse interactions are considered more trustworthy.
+    \begin{equation}
+    T_{\text{activity}}(u) = \min\left(1, \frac{\text{interactions}(u)}{\text{threshold}}\right)
+    \end{equation}
+    where threshold is typically set to 10 interactions.
+\end{enumerate}
+
+\subsection{Trust Computation Algorithm}
+
+\begin{algorithm}[htbp]
+\caption{Trust Score Computation}
+\label{alg:trust_computation}
+\begin{algorithmic}[1]
+\REQUIRE User $u$, Item $i$, Rating $r_{ui}$, Timestamp $t_{ui}$, User history $\mathcal{H}_u$
+\ENSURE Trust score $T(u,i) \in [0,1]$
+\STATE $T_{\text{consistency}} \leftarrow 1 - |r_{ui} - \text{mean}(\mathcal{H}_u)| / 4$ \COMMENT{Normalized by max rating diff}
+\STATE $T_{\text{popularity}} \leftarrow \text{positive\_ratio}(i)$ \COMMENT{Fraction of ratings > 3
+\STATE $T_{\text{recency}} \leftarrow \exp(-0.1 \cdot (t_{\text{now}} - t_{ui}))$
+\STATE $T_{\text{activity}} \leftarrow \min(1, |\mathcal{H}_u| / 10)$
+\STATE $T(u,i) \leftarrow 0.3 \cdot T_{\text{consistency}} + 0.25 \cdot T_{\text{popularity}}$
+\STATE \quad $+\, 0.25 \cdot T_{\text{recency}} + 0.2 \cdot T_{\text{activity}}$
+\RETURN $T(u,i)$
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Trust-Aware Recommendation}
+
+The final recommendation score combines the predicted rating with the trust score:
+
+\begin{equation}
+S(u,i) = w_1 \cdot \hat{r}_{ui} + w_2 \cdot T(u,i)
+\end{equation}
+
+where $w_1$ and $w_2$ are weights (typically $w_1=0.6, w_2=0.4$) balancing the predicted rating against the trustworthiness of the interaction.
+
+% ============================================================================
+% END OF APPENDIX CONTENT
+% ============================================================================

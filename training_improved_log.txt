@@ -1,0 +1,89 @@
+======================================================================
+MULTIMODAL FEDERATED RECOMMENDATION  |  TEXT + REAL YELP IMAGES
+======================================================================
+Found 5 client files
+Dataset: 827 users,  760 items
+Total interactions: 2777
+✅ Image features loaded for 760 / 760 items  (100.0% coverage)
+Split → Train: 1987,  Test: 790
+
+Model: MultimodalMFRec  |  Parameters: 1,651,842
+  Streams: User-ID Embedding  +  TF-IDF Text  +  ResNet18 Image
+  Items with real photos: 760/760  (100.0% multimodal, rest text-only)
+
+
+Multimodal BPR Training
+  Interactions : 1987  |  Epochs: 200
+  Items with real Yelp photos : 760 / 760
+  Epoch  10/200  |  BPR Loss: 0.4846
+  Epoch  20/200  |  BPR Loss: 0.2489
+  Epoch  30/200  |  BPR Loss: 0.1749
+  Epoch  40/200  |  BPR Loss: 0.1242
+  Epoch  50/200  |  BPR Loss: 0.1012
+  Epoch  60/200  |  BPR Loss: 0.0652
+  Epoch  70/200  |  BPR Loss: 0.0826
+  Epoch  80/200  |  BPR Loss: 0.0414
+  Epoch  90/200  |  BPR Loss: 0.0484
+  Epoch 100/200  |  BPR Loss: 0.0318
+  Epoch 110/200  |  BPR Loss: 0.0305
+  Epoch 120/200  |  BPR Loss: 0.0222
+  Epoch 130/200  |  BPR Loss: 0.0236
+  Epoch 140/200  |  BPR Loss: 0.0207
+  Epoch 150/200  |  BPR Loss: 0.0158
+  Epoch 160/200  |  BPR Loss: 0.0177
+  Epoch 170/200  |  BPR Loss: 0.0154
+  Epoch 180/200  |  BPR Loss: 0.0109
+  Epoch 190/200  |  BPR Loss: 0.0126
+  Epoch 200/200  |  BPR Loss: 0.0146
+Training complete.
+
+Evaluating 790 users  (sampled protocol: 1 pos + 99 neg) ...
+
+Running full-ranking evaluation (all 760 items) on 50 users ...
+
+=================================================================
+MULTIMODAL RESULTS (Text + Real Yelp Images)  |  SAMPLED EVAL
+=================================================================
+Metric                           @5       @10       @20
+-------------------------------------------------------
+Hit Rate @5                  0.1253
+NDCG @5                      0.0822
+
+Hit Rate @10                 0.2114
+NDCG @10                     0.1098
+
+Hit Rate @20                 0.3544
+NDCG @20                     0.1460
+
+=================================================================
+FULL-RANKING RESULTS  (1 relevant item vs all items)
+=================================================================
+Metric                      @5       @10       @20
+--------------------------------------------------
+PRECISION               0.0040    0.0020    0.0010
+RECALL                  0.0200    0.0200    0.0200
+NDCG                    0.0819    0.0819    0.0819
+=================================================================
+
+=================================================================
+TRUST-AWARE vs NON-TRUST-AWARE COMPARISON
+=================================================================
+Non-Trust Avg Score    : -0.0394
+Trust-Aware Avg Score  : -0.0335
+Change                 : -15.0% (trust filters low-rep clients)
+
+=================================================================
+COLD-START: HR@10 vs number of user interactions
+=================================================================
+  1 train interactions   HR@10: 0.1000  (20 users)
+  2 train interactions   HR@10: 0.2000  (20 users)
+  3 train interactions   HR@10: 0.0000  (20 users)
+  4 train interactions   HR@10: 0.1500  (20 users)
+  5+ train interactions   HR@10: 0.1500  (20 users)
+
+=================================================================
+DIVERSITY & CATALOG COVERAGE
+=================================================================
+  Catalog Coverage (@10, 50 users): 41.58%
+  Unique items recommended        : 316 / 760
+=================================================================
