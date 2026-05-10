@@ -27,12 +27,19 @@ class RecommendationSystem:
         self.item_metadata = {}
         self.user_history = defaultdict(list)
         
+        # Real per-item text features (item_id → tensor[1, text_dim])
+        self.item_text_features: Dict[int, torch.Tensor] = {}
+        
         # Recommendation cache
         self.recommendation_cache = {}
         
     def set_item_metadata(self, item_metadata: Dict[int, Dict]):
         """Set metadata for items (names, categories, etc.)"""
         self.item_metadata = item_metadata
+
+    def set_item_text_features(self, features: Dict[int, torch.Tensor]):
+        """Set real per-item text features (e.g. TF-IDF from Yelp reviews)."""
+        self.item_text_features = features
     
     def update_user_history(self, user_id: int, item_id: int, rating: float, 
                            review_text: str = "", timestamp: int = 0):
@@ -102,12 +109,54 @@ class RecommendationSystem:
         
         return score
     
+    def _content_score(self, user_id: int, item_id: int) -> float:
+        """Content-based relevance: category overlap + popularity signal.
+        Returns a score in [0, 1].
+        """
+        user_hist = self.user_history.get(user_id, [])
+        if not user_hist:
+            # No history — fall back to item popularity
+            meta = self.item_metadata.get(item_id, {})
+            review_count = meta.get('review_count', 0)
+            stars = meta.get('stars', 3.0)
+            return min(1.0, (stars / 5.0) * 0.6 + min(review_count, 1000) / 1000 * 0.4)
+
+        # Gather categories the user liked (rating >= 3)
+        liked_cats: set = set()
+        for h in user_hist:
+            if h.get('rating', 3.0) >= 3.0:
+                h_meta = self.item_metadata.get(h['item_id'], {})
+                cats_str = h_meta.get('categories', '') or h_meta.get('category', '')
+                liked_cats.update(c.strip().lower() for c in cats_str.split(',') if c.strip())
+
+        item_meta = self.item_metadata.get(item_id, {})
+        item_cats_str = item_meta.get('categories', '') or item_meta.get('category', '')
+        item_cats = {c.strip().lower() for c in item_cats_str.split(',') if c.strip()}
+
+        # Category overlap score
+        if liked_cats and item_cats:
+            overlap = len(liked_cats & item_cats) / max(len(liked_cats | item_cats), 1)
+        else:
+            overlap = 0.0
+
+        # Popularity signal
+        stars = item_meta.get('stars', 3.0)
+        review_count = item_meta.get('review_count', 0)
+        pop = (stars / 5.0) * 0.5 + min(review_count, 1500) / 1500 * 0.5
+
+        # Weighted combination
+        return overlap * 0.65 + pop * 0.35
+
     def recommend_items_for_user(self, user_id: int, top_k: int = 10,
                                 exclude_seen: bool = True,
                                 text_features: Optional[torch.Tensor] = None,
                                 images: Optional[torch.Tensor] = None,
                                 trust_scores: Optional[Dict[int, float]] = None) -> List[Dict]:
-        """Generate recommendations for a specific user"""
+        """Generate recommendations using hybrid scoring.
+        
+        Scoring = GNN_embedding_signal + content_based_signal, producing
+        varied, personalised scores that reflect actual user preferences.
+        """
         
         # Check cache first
         cache_key = f"{user_id}_{top_k}_{exclude_seen}"
@@ -119,18 +168,13 @@ class RecommendationSystem:
         if exclude_seen and user_id in self.user_history:
             seen_items = set(interaction['item_id'] for interaction in self.user_history[user_id])
         
-        # Create dummy features if not provided
-        # Get text feature dimension from encoder
+        # Determine text feature dimension
         text_dim = getattr(self.encoder, 'text_projection', None)
-        if text_dim is not None:
-            text_input_dim = text_dim.in_features
-        else:
-            text_input_dim = 1000  # Default from metadata
-        
-        if text_features is None:
-            text_features = torch.randn(1, text_input_dim)
-        if images is None:
-            images = torch.randn(1, 3, 224, 224)  # Default image size
+        text_input_dim = text_dim.in_features if text_dim is not None else 1000
+
+        # Fallback features (used only when per-item features are missing)
+        default_text = text_features if text_features is not None else torch.randn(1, text_input_dim)
+        default_img  = images if images is not None else torch.randn(1, 3, 224, 224)
         
         # Score all items
         item_scores = []
@@ -138,13 +182,23 @@ class RecommendationSystem:
             if item_id in seen_items:
                 continue
             
+            # Use real per-item text features when available
+            tf = self.item_text_features.get(item_id, default_text)
+
             # Get trust score for this item if available
             item_trust = trust_scores.get(item_id, 1.0) if trust_scores else None
             
-            # Predict score
-            score = self.predict_user_item_score(
-                user_id, item_id, text_features, images, item_trust
+            # GNN-based score (from the neural model)
+            gnn_score = self.predict_user_item_score(
+                user_id, item_id, tf, default_img, item_trust
             )
+
+            # Content-based score (category overlap + popularity)
+            cb_score = self._content_score(user_id, item_id)
+
+            # Hybrid: blend GNN signal with content signal
+            # GNN gives the embedding-level relevance; content gives interpretable relevance
+            score = gnn_score * 0.4 + cb_score * 0.6
             
             item_scores.append((item_id, score))
         
@@ -185,34 +239,43 @@ class RecommendationSystem:
     def get_similar_items(self, item_id: int, top_k: int = 5,
                          text_features: Optional[torch.Tensor] = None,
                          images: Optional[torch.Tensor] = None) -> List[Dict]:
-        """Find similar items to a given item"""
+        """Find similar items using real per-item text features when available."""
         
-        # Get embedding for target item
-        # Get text feature dimension from encoder
         text_dim = getattr(self.encoder, 'text_projection', None)
-        if text_dim is not None:
-            text_input_dim = text_dim.in_features
-        else:
-            text_input_dim = 1000
-            
-        if text_features is None:
-            text_features = torch.randn(1, text_input_dim)
-        if images is None:
-            images = torch.randn(1, 3, 224, 224)
+        text_input_dim = text_dim.in_features if text_dim is not None else 1000
+
+        default_text = text_features if text_features is not None else torch.randn(1, text_input_dim)
+        default_img  = images if images is not None else torch.randn(1, 3, 224, 224)
+
+        target_tf = self.item_text_features.get(item_id, default_text)
+        target_embedding = self.get_item_embedding(item_id, target_tf, default_img)
         
-        target_embedding = self.get_item_embedding(item_id, text_features, images)
-        
+        # Also compute content-based similarity via category overlap
+        target_meta = self.item_metadata.get(item_id, {})
+        target_cats_str = target_meta.get('categories', '') or target_meta.get('category', '')
+        target_cats = {c.strip().lower() for c in target_cats_str.split(',') if c.strip()}
+
         # Calculate similarity with all other items
         similarities = []
         for other_item_id in range(self.num_items):
             if other_item_id == item_id:
                 continue
+
+            other_tf = self.item_text_features.get(other_item_id, default_text)
+            other_embedding = self.get_item_embedding(other_item_id, other_tf, default_img)
             
-            other_embedding = self.get_item_embedding(other_item_id, text_features, images)
-            
-            # Cosine similarity
-            similarity = torch.cosine_similarity(target_embedding, other_embedding, dim=0)
-            similarities.append((other_item_id, similarity.item()))
+            # GNN embedding cosine similarity
+            emb_sim = torch.cosine_similarity(target_embedding, other_embedding, dim=0).item()
+
+            # Category overlap
+            other_meta = self.item_metadata.get(other_item_id, {})
+            other_cats_str = other_meta.get('categories', '') or other_meta.get('category', '')
+            other_cats = {c.strip().lower() for c in other_cats_str.split(',') if c.strip()}
+            cat_sim = len(target_cats & other_cats) / max(len(target_cats | other_cats), 1) if target_cats else 0.0
+
+            # Hybrid similarity
+            similarity = emb_sim * 0.5 + cat_sim * 0.5
+            similarities.append((other_item_id, similarity))
         
         # Sort by similarity and get top-k
         similarities.sort(key=lambda x: x[1], reverse=True)

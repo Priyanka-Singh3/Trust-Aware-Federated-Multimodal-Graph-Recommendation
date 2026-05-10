@@ -75,11 +75,11 @@ dmypy.json
 .pyre/
 
 # Data files
-data/raw/*.csv
-data/raw/*.json
-data/processed/*.pt
-data/processed/*.pkl
-data/processed/*.npy
+# data/raw/*.csv
+# data/raw/*.json
+# data/processed/*.pt
+# data/processed/*.pkl
+# data/processed/*.npy
 
 # Model files
 models/*.pth

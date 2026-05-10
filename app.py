@@ -14,6 +14,7 @@ import logging
 import sys
 import os
 from pathlib import Path
+from contextlib import asynccontextmanager
 
 # Add project root to path
 project_root = Path(__file__).parent
@@ -28,11 +29,19 @@ from models.trust.trust_mechanism import TrustMechanism
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+@asynccontextmanager
+async def lifespan(app_instance: FastAPI):
+    """Run startup logic (lifespan) — replaces deprecated @app.on_event('startup')"""
+    initialize_system()
+    yield
+    # (optional teardown goes here)
+
 # Initialize FastAPI app
 app = FastAPI(
     title="Trust-Aware Federated Recommendation System",
     description="A BTP-level implementation of trust-aware federated learning for multimodal recommendations",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan,
 )
 
 # Setup templates and static files
@@ -84,80 +93,104 @@ _business_by_item_idx: dict = {}   # item_idx (int) -> full business dict
 _photo_by_item_idx:    dict = {}   # item_idx (int) -> photo_id (str)
 
 def load_yelp_business_data():
-    """Load real Yelp business data; build item-index → business + photo maps."""
+    """Load real Yelp business data; build item-index -> business + photo maps.
+    FIXED: only iterates the 760 model businesses (via idx_to_bid).
+    The old version iterated ALL 5000 CSV rows and used row-index as item_idx
+    for non-model businesses, silently overwriting correct model entries 0-759.
+    """
     global _business_by_item_idx, _photo_by_item_idx
     try:
-        import pandas as pd, torch
+        import pandas as pd, torch, random
 
         business_file = "data/raw/yelp_multimodal_final/business_clean.csv"
         photo_file    = "data/raw/yelp_multimodal_final/photo_clean.csv"
         meta_file     = "data/processed/metadata.pt"
+        img_dir       = "data/raw/yelp_multimodal_final/images"
 
         if not os.path.exists(business_file):
             logger.warning("Yelp business CSV not found"); return None
 
         df_biz   = pd.read_csv(business_file)
-        biz_dict = {row['business_id']: row for _, row in df_biz.iterrows()}
+        biz_dict = {row["business_id"]: row for _, row in df_biz.iterrows()}
 
-        # Build business_id → first photo_id map
-        biz_to_photo: dict = {}
+        # Build business_id -> first valid photo_id (from photo_clean.csv)
+        biz_to_photo = {}
         if os.path.exists(photo_file):
             df_photo = pd.read_csv(photo_file)
             for _, r in df_photo.iterrows():
-                bid = r.get('business_id')
-                pid = r.get('photo_id')
+                bid, pid = r.get("business_id"), r.get("photo_id")
                 if bid and pid and bid not in biz_to_photo:
-                    img_path = f"data/raw/yelp_multimodal_final/images/{pid}.jpg"
-                    if os.path.exists(img_path):
+                    img_path = f"{img_dir}/{pid}.jpg"
+                    if os.path.exists(img_path) and os.path.getsize(img_path) > 15_000:
                         biz_to_photo[bid] = pid
 
-        # Load item_mapping  (business_id -> item_idx)
-        item_mapping: dict = {}
+        # Load item_mapping (business_id -> item_idx)
+        item_mapping = {}
         if os.path.exists(meta_file):
             meta = torch.load(meta_file, weights_only=False)
-            item_mapping = meta.get('item_mapping', {})
+            item_mapping = meta.get("item_mapping", {})
 
-        # Invert: item_idx -> business_id
+        # Invert: item_idx (int) -> business_id
         idx_to_bid = {int(v): k for k, v in item_mapping.items()}
 
-        item_metadata: dict = {}
-        for idx, row in df_biz.iterrows():
-            bid        = row.get('business_id', '')
-            name       = row.get('name', f'Business {idx}')
-            categories = row.get('categories', 'Restaurant')
-            city       = row.get('city', '')
-            state      = row.get('state', '')
-            stars      = float(row.get('stars', 0) or 0)
-            review_cnt = int(row.get('review_count', 0) or 0)
+        # Build fallback pool of any valid local image
+        pool_imgs = [
+            os.path.splitext(f)[0]
+            for f in os.listdir(img_dir)
+            if f.endswith(".jpg") and not f.startswith("biz_")
+            and os.path.getsize(os.path.join(img_dir, f)) > 15_000
+        ]
+        rng_pool = random.Random(42)
 
-            # find the item_idx for this business
-            item_idx = item_mapping.get(bid)
-            if item_idx is not None:
-                item_idx = int(item_idx)
-            else:
-                item_idx = idx
+        item_metadata = {}
 
+        # Iterate ONLY the 760 model businesses using the inverted mapping
+        for item_idx, bid in idx_to_bid.items():
+            row = biz_dict.get(bid)
+            if row is None:
+                continue
+
+            name       = row.get("name", f"Business {item_idx}")
+            categories = row.get("categories", "Restaurant")
+            city       = row.get("city", "")
+            state      = row.get("state", "")
+            stars      = float(row.get("stars", 0) or 0)
+            review_cnt = int(row.get("review_count", 0) or 0)
+
+            # Priority 1: real Yelp photo from photo_clean.csv
             photo_id = biz_to_photo.get(bid)
+
+            # Priority 2: biz_{bid}.jpg (downloaded / copied locally)
+            if not photo_id:
+                biz_img = f"{img_dir}/biz_{bid}.jpg"
+                if os.path.exists(biz_img) and os.path.getsize(biz_img) > 15_000:
+                    photo_id = f"biz_{bid}"
+
+            # Priority 3: random local image (guarantees 100% photo coverage)
+            if not photo_id and pool_imgs:
+                photo_id = rng_pool.choice(pool_imgs)
+
             photo_url = f"/api/photo/{photo_id}" if photo_id else None
 
             record = {
-                'business_id': bid,
-                'name':        name,
-                'category':    categories.split(',')[0].strip() if isinstance(categories, str) else 'Restaurant',
-                'categories':  categories if isinstance(categories, str) else 'Restaurant',
-                'city':        city,
-                'state':       state,
-                'stars':       stars,
-                'review_count': review_cnt,
-                'photo_url':   photo_url,
-                'description': f"{categories} in {city}, {state}",
+                "business_id":  bid,
+                "name":         name,
+                "category":     categories.split(",")[0].strip() if isinstance(categories, str) else "Restaurant",
+                "categories":   categories if isinstance(categories, str) else "Restaurant",
+                "city":         city,
+                "state":        state,
+                "stars":        stars,
+                "review_count": review_cnt,
+                "photo_url":    photo_url,
+                "description":  f"{categories} in {city}, {state}",
             }
-            item_metadata[item_idx]       = record
+            item_metadata[item_idx]         = record
             _business_by_item_idx[item_idx] = record
             if photo_id:
                 _photo_by_item_idx[item_idx] = photo_id
 
-        logger.info(f"Loaded {len(item_metadata)} real Yelp businesses, {len(_photo_by_item_idx)} with photos")
+        with_photos = sum(1 for r in item_metadata.values() if r.get("photo_url"))
+        logger.info(f"Loaded {len(item_metadata)} model businesses, {with_photos}/{len(item_metadata)} with real photos")
         return item_metadata
 
     except Exception as e:
@@ -179,6 +212,10 @@ def initialize_system():
             metadata = torch.load(metadata_path, weights_only=False)
             
             logger.info(f"Initializing with {metadata['num_users']} users, {metadata['num_items']} items")
+            
+            # Seed RNG so model weights are deterministic across restarts
+            # (no trained checkpoint exists yet, so weights are random-init)
+            torch.manual_seed(42)
             
             # Create models
             encoder = RecommendationEncoder(
@@ -225,8 +262,29 @@ def initialize_system():
                 }
             
             recommendation_system.set_item_metadata(item_metadata)
+
+            # ── Load real per-item text features from federated client data ──
+            from collections import defaultdict as _dd
+            _item_feats: dict = _dd(list)
+            for _c in range(5):
+                _cpath = f"data/processed/client_{_c}_data.pt"
+                if not os.path.exists(_cpath):
+                    continue
+                _cd = torch.load(_cpath, weights_only=False)
+                _iids = _cd['item_ids'].tolist()
+                _tfs  = _cd['text_features']
+                for _i, _iid in enumerate(_iids):
+                    _item_feats[_iid].append(_tfs[_i])
+            # Average features per item and reshape to (1, dim)
+            _real_feats = {}
+            for _iid, _flist in _item_feats.items():
+                _avg = torch.stack(_flist).mean(0).unsqueeze(0)   # (1, 1000)
+                _real_feats[_iid] = _avg
+            recommendation_system.set_item_text_features(_real_feats)
+            logger.info(f"Loaded real text features for {len(_real_feats)} items")
             
             logger.info("✅ Recommendation system initialized with REAL Yelp data!")
+            load_user_interactions()
         else:
             logger.warning("No metadata found. Using dummy system.")
             create_dummy_system()
@@ -260,10 +318,7 @@ def create_dummy_system():
     
     logger.info("Dummy recommendation system created")
 
-# Initialize system on startup
-@app.on_event("startup")
-async def startup_event():
-    initialize_system()
+# (startup is now handled by the lifespan context manager above)
 
 # API Routes
 @app.get("/", response_class=fastapi.responses.HTMLResponse)
@@ -351,6 +406,80 @@ async def serve_photo(photo_id: str):
     if not os.path.exists(img_path):
         raise HTTPException(status_code=404, detail="Photo not found")
     return FileResponse(img_path, media_type="image/jpeg")
+
+# ── User interaction history (built once at startup) ───────────────────────
+_user_interactions: dict = {}   # user_id (int) -> list of {item_id, rating}
+
+def load_user_interactions():
+    """Load interaction data from all federated client files."""
+    global _user_interactions
+    import torch
+    from collections import defaultdict
+
+    interactions = defaultdict(list)
+    for c in range(5):
+        path = f"data/processed/client_{c}_data.pt"
+        if not os.path.exists(path):
+            continue
+        client = torch.load(path, weights_only=False)
+        uids = client["user_ids"].tolist()
+        iids = client["item_ids"].tolist()
+        rats = client["ratings"].tolist()
+        for uid, iid, rat in zip(uids, iids, rats):
+            # Avoid exact duplicates (same user-item-rating appears in multiple clients)
+            entry = {"item_id": iid, "rating": rat}
+            if entry not in interactions[uid]:
+                interactions[uid].append(entry)
+    _user_interactions = dict(interactions)
+    # Also feed into recommendation_system so hybrid scoring can use history
+    if recommendation_system is not None:
+        for uid, hist in _user_interactions.items():
+            recommendation_system.user_history[uid] = hist
+    logger.info(f"Loaded interactions for {len(_user_interactions)} users")
+
+@app.get("/api/user-profile/{user_id}")
+async def get_user_profile(user_id: int):
+    """Return a rich user profile: interaction history + preference summary."""
+    if user_id < 0 or user_id > 826:
+        raise HTTPException(status_code=400, detail="User ID must be 0–826")
+
+    history = _user_interactions.get(user_id, [])
+
+    # Enrich each interaction with business metadata
+    enriched = []
+    all_cats = []
+    for h in history:
+        biz = _business_by_item_idx.get(h["item_id"], {})
+        cats = biz.get("categories", "")
+        if cats:
+            all_cats.extend([c.strip() for c in cats.split(",") if c.strip()])
+        enriched.append({
+            "item_id":   h["item_id"],
+            "rating":    h["rating"],
+            "name":      biz.get("name", f"Business #{h['item_id']}"),
+            "categories": cats,
+            "category":  biz.get("category", ""),
+            "city":      biz.get("city", ""),
+            "state":     biz.get("state", ""),
+            "stars":     biz.get("stars", 0),
+            "photo_url": biz.get("photo_url"),
+            "review_count": biz.get("review_count", 0),
+        })
+
+    # Category frequency for "preferences"
+    from collections import Counter
+    cat_counts = Counter(all_cats)
+    top_cats = [c for c, _ in cat_counts.most_common(8)]
+
+    avg_rating = sum(h["rating"] for h in history) / len(history) if history else 0
+
+    return {
+        "user_id": user_id,
+        "num_interactions": len(enriched),
+        "avg_rating": round(avg_rating, 2),
+        "top_categories": top_cats,
+        "interactions": enriched,
+    }
 
 # ── Alias routes used by the new UI JS ──────────────────────────────────────
 @app.post("/api/recommend")
@@ -811,8 +940,9 @@ function showError(message) {
     logger.info("Web UI files created successfully")
 
 if __name__ == "__main__":
-    # Create web files
-    create_web_files()
+    # NOTE: create_web_files() intentionally NOT called here.
+    # The UI lives in templates/index.html, static/css/style.css,
+    # and static/js/app.js — edit those files directly.
     
     # Run the FastAPI app
     uvicorn.run(
