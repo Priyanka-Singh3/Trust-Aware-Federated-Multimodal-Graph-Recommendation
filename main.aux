@@ -47,7 +47,7 @@
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-C}}Multimodal Feature Encoding}{2}{subsection.3.3}\protected@file@percent }
 \@writefile{lot}{\contentsline {table}{\numberline {I}{\ignorespaces Literature Comparison: Multimodal Federated Learning Approaches}}{3}{table.1}\protected@file@percent }
 \newlabel{tab:literature_comparison}{{I}{3}{Literature Comparison: Multimodal Federated Learning Approaches}{table.1}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-D}}MultimodalMFRec Architecture}{3}{subsection.3.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-D}}T-FedMMG GNN Architecture}{3}{subsection.3.4}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-E}}Trust-Aware Scoring}{3}{subsection.3.5}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-F}}Federated Learning Protocol}{3}{subsection.3.6}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-G}}Generating Recommendations}{4}{subsection.3.7}\protected@file@percent }
@@ -60,11 +60,11 @@
 \newlabel{tab:baselines}{{II}{4}{Baseline Comparison: Hit Rate and NDCG @10}{table.2}{}}
 \@writefile{lot}{\contentsline {table}{\numberline {III}{\ignorespaces Performance Metrics at Different K Values}}{4}{table.3}\protected@file@percent }
 \newlabel{tab:performance_k}{{III}{4}{Performance Metrics at Different K Values}{table.3}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Enhanced GNN comparison: Our enhanced GNN achieves HR@10 of 0.1848, 1.85× better than random baseline and demonstrates 37.6\% improvement over original GNN architecture.}}{4}{figure.2}\protected@file@percent }
-\newlabel{fig:baselines}{{2}{4}{Enhanced GNN comparison: Our enhanced GNN achieves HR@10 of 0.1848, 1.85× better than random baseline and demonstrates 37.6\% improvement over original GNN architecture}{figure.2}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Enhanced GNN performance improvements: Shows 37.6\% improvement in HR@10 and 55.1\% improvement in NDCG@10 over original GNN architecture.}}{5}{figure.3}\protected@file@percent }
-\newlabel{fig:performance_k}{{3}{5}{Enhanced GNN performance improvements: Shows 37.6\% improvement in HR@10 and 55.1\% improvement in NDCG@10 over original GNN architecture}{figure.3}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-A}}Enhanced GNN Implementation Results}{5}{subsection.5.1}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Baseline comparison: T-FedMMG achieves HR@10 of 0.1848, 1.85× better than random baseline and competitive with popularity-based approach.}}{4}{figure.2}\protected@file@percent }
+\newlabel{fig:baselines}{{2}{4}{Baseline comparison: T-FedMMG achieves HR@10 of 0.1848, 1.85× better than random baseline and competitive with popularity-based approach}{figure.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-A}}GNN Performance Analysis and Improvements}{4}{subsection.5.1}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Performance across different K values: HR and NDCG at K=5, 10, 20.}}{5}{figure.3}\protected@file@percent }
+\newlabel{fig:performance_k}{{3}{5}{Performance across different K values: HR and NDCG at K=5, 10, 20}{figure.3}{}}
 \@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Cold-start performance by number of training interactions. Performance is measured by HR@10 for users with 1–4+ historical interactions.}}{5}{figure.4}\protected@file@percent }
 \@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Training convergence: BPR loss decreased from 0.48 to 0.015 over 200 epochs with optimized hyperparameters (256-d embeddings, lr=1e-3).}}{5}{figure.5}\protected@file@percent }
 \newlabel{fig:training}{{5}{5}{Training convergence: BPR loss decreased from 0.48 to 0.015 over 200 epochs with optimized hyperparameters (256-d embeddings, lr=1e-3)}{figure.5}{}}
@@ -72,22 +72,15 @@
 \@writefile{lot}{\contentsline {table}{\numberline {IV}{\ignorespaces System Latency and Scalability}}{5}{table.4}\protected@file@percent }
 \newlabel{tab:latency}{{IV}{5}{System Latency and Scalability}{table.4}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-C}}Overall Assessment}{5}{subsection.5.3}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {V}{\ignorespaces Overall Performance Assessment}}{5}{table.5}\protected@file@percent }
+\newlabel{tab:assessment}{{V}{5}{Overall Performance Assessment}{table.5}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {VI}Conclusion and Future Work}{5}{section.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-A}}Summary of Contributions}{5}{subsection.6.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {VI-A}1}Key Achievements}{5}{subsubsection.6.1.1}\protected@file@percent }
 \bibcite{b1}{1}
 \bibcite{b2}{2}
 \bibcite{b3}{3}
 \bibcite{b4}{4}
-\@writefile{lot}{\contentsline {table}{\numberline {V}{\ignorespaces Overall Performance Assessment}}{6}{table.5}\protected@file@percent }
-\newlabel{tab:assessment}{{V}{6}{Overall Performance Assessment}{table.5}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {VI}Conclusion and Future Work}{6}{section.6}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-A}}Summary of Contributions}{6}{subsection.6.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {VI-A}1}Key Achievements}{6}{subsubsection.6.1.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {VI-A}2}Performance Highlights}{6}{subsubsection.6.1.2}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {VI}{\ignorespaces Performance Summary of Proposed System}}{6}{table.6}\protected@file@percent }
-\newlabel{tab:performance_summary}{{VI}{6}{Performance Summary of Proposed System}{table.6}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-B}}Limitations}{6}{subsection.6.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-C}}Future Work}{6}{subsection.6.3}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-D}}Final Remarks}{6}{subsection.6.4}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{References}{6}{section*.1}\protected@file@percent }
 \bibcite{b5}{5}
 \bibcite{b6}{6}
 \bibcite{b7}{7}
@@ -101,6 +94,13 @@
 \bibcite{b15}{15}
 \bibcite{b16}{16}
 \bibcite{b17}{17}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {VI-A}2}Performance Highlights}{6}{subsubsection.6.1.2}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {VI}{\ignorespaces Performance Summary of Proposed System}}{6}{table.6}\protected@file@percent }
+\newlabel{tab:performance_summary}{{VI}{6}{Performance Summary of Proposed System}{table.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-B}}Limitations}{6}{subsection.6.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-C}}Future Work}{6}{subsection.6.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-D}}Final Remarks}{6}{subsection.6.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{References}{6}{section*.1}\protected@file@percent }
 \bibcite{b18}{18}
 \bibcite{b19}{19}
 \bibcite{b20}{20}
