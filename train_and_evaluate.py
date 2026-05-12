@@ -245,7 +245,10 @@ def evaluate_sampled(model, user_ids, item_ids, text_feats, item_img_feats,
         if_t = item_img_feats[i_t]
 
         with torch.no_grad():
-            scores, _, _ = model(u_t, i_t, tf_t)
+            try:
+                scores, _, _ = model(u_t, i_t, tf_t, if_t)
+            except TypeError:
+                scores, _, _ = model(u_t, i_t, tf_t)
             scores = scores.cpu().numpy()
 
         ranked   = sorted(zip(eval_items, scores), key=lambda x: x[1], reverse=True)
@@ -276,7 +279,10 @@ def evaluate_sampled(model, user_ids, item_ids, text_feats, item_img_feats,
             tf    = u_tf.unsqueeze(0).expand(nb, -1)
             im_f  = item_img_feats[i_t]
             with torch.no_grad():
-                s, _, _ = model(u_t, i_t, tf)
+                try:
+                    s, _, _ = model(u_t, i_t, tf, im_f)
+                except TypeError:
+                    s, _, _ = model(u_t, i_t, tf)
                 s = s.cpu().numpy()
             all_s.extend(zip(batch, s.tolist()))
         all_s.sort(key=lambda x: x[1], reverse=True)
