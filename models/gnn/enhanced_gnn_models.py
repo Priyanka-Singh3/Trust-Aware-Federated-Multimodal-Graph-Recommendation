@@ -148,11 +148,11 @@ class MultimodalAttentionGNN(nn.Module):
                 input_dim = hidden_dim
                 
             # Use GAT for attention-based message passing
-            self.gnn_layers.append(GATConv(input_dim, hidden_dim, heads=4, dropout=dropout))
+            self.gnn_layers.append(GATConv(input_dim, hidden_dim // 4, heads=4, dropout=dropout))
         
         # Residual connections
         self.residual_layers = nn.ModuleList([
-            nn.Linear(hidden_dim * 2, hidden_dim) for _ in range(num_layers - 1)
+            nn.Linear(hidden_dim, hidden_dim) for _ in range(num_layers - 1)
         ])
         
         # Output layers
@@ -251,10 +251,26 @@ class MultimodalAttentionGNN(nn.Module):
             edge_index = self.create_bipartite_edges(user_ids, item_ids)
         else:
             edge_index = edge_index
+            
+        # Create node features for the entire graph
+        device = user_combined.device
+        all_node_features = torch.zeros(self.num_users + self.num_items, user_combined.size(1), device=device)
+        
+        # Fill in features for the batch
+        unique_users = torch.unique(user_ids)
+        unique_items = torch.unique(item_ids)
+        
+        for uid in unique_users:
+            mask = user_ids == uid
+            if mask.sum() > 0:
+                all_node_features[uid] = user_combined[mask].mean(dim=0)
+                
+        for iid in unique_items:
+            mask = item_ids == iid
+            if mask.sum() > 0:
+                all_node_features[iid + self.num_users] = item_combined[mask].mean(dim=0)
         
         # GNN message passing with residual connections
-        all_node_features = torch.cat([user_combined, item_combined], dim=0)
-        
         for i, gnn_layer in enumerate(self.gnn_layers):
             if i > 0:
                 # Residual connection
@@ -268,8 +284,8 @@ class MultimodalAttentionGNN(nn.Module):
             all_node_features = self.dropout(all_node_features)
         
         # Split back to user and item embeddings
-        updated_user_emb = all_node_features[:batch_size]
-        updated_item_emb = all_node_features[batch_size:batch_size*2]
+        updated_user_emb = all_node_features[user_ids]
+        updated_item_emb = all_node_features[item_ids + self.num_users]
         
         # Compute prediction scores
         combined_emb = torch.cat([updated_user_emb, updated_item_emb], dim=1)

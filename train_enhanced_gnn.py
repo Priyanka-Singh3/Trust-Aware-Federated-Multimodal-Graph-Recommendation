@@ -149,7 +149,7 @@ def train_enhanced_gnn(model, user_ids, item_ids, text_feats, item_img_feats,
         mean_loss = np.mean(losses)
         scheduler.step(mean_loss)
         
-        if epoch % 10 == 0:
+        if True:  # Print every epoch to show progress
             reg_str = f" | Reg: {np.mean(reg_losses):.6f}" if reg_losses else ""
             print(f"  Epoch {epoch:3d}/{epochs}  |  BPR Loss: {mean_loss:.4f}{reg_str} | LR: {scheduler.get_current_lr():.6f}")
         
@@ -199,7 +199,7 @@ def main():
     edge_index = train_enhanced_gnn(
         model, user_ids, item_ids, text_feats, item_img_feats,
         train_mask, metadata['num_items'], 
-        epochs=200, batch_size=512, lr=1e-3
+        epochs=50, batch_size=1024, lr=1e-3
     )
     
     # Evaluate enhanced model

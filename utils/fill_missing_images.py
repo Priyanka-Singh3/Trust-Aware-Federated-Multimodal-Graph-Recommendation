@@ -82,8 +82,8 @@ def get_search_term(categories: str) -> str:
 
 def download_unsplash(query: str, save_path: str, idx: int) -> bool:
     """Download from Unsplash Source with unique idx to avoid caching."""
-    # sig param makes each URL unique so Unsplash returns different images
-    url = f"https://source.unsplash.com/400x300/?{query.replace(' ',',')}&sig={idx}"
+    # Unsplash source API is deprecated. Using Lorem Picsum as a fallback for real images.
+    url = f"https://picsum.photos/seed/{idx}/400/300"
     try:
         r = requests.get(url, headers=HEADERS, timeout=15, allow_redirects=True)
         if r.status_code == 200 and len(r.content) > 15_000:
