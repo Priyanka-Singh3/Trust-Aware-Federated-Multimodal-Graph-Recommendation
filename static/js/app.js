@@ -7,8 +7,6 @@ const sectionTitles = {
     dashboard: 'Dashboard',
     recommend: 'Get Recommendations',
     similar: 'Similar Businesses',
-    trust: 'Trust Analytics',
-    federated: 'Federated Flow',
     research: 'Research Results',
     animation: 'System Flow — Live Demo',
 };

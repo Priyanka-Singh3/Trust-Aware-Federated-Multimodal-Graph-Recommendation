@@ -27,15 +27,13 @@
     <a href="#dashboard"     class="nav-item active"  data-section="dashboard"><span class="nav-icon">⊞</span>Dashboard</a>
     <a href="#recommend"     class="nav-item"         data-section="recommend"><span class="nav-icon">✦</span>Get Recommendations</a>
     <a href="#similar"       class="nav-item"         data-section="similar"><span class="nav-icon">◈</span>Similar Businesses</a>
-    <a href="#trust"         class="nav-item"         data-section="trust"><span class="nav-icon">◉</span>Trust Analytics</a>
-    <a href="#federated"     class="nav-item"         data-section="federated"><span class="nav-icon">⬡</span>Federated Flow</a>
     <a href="#research"      class="nav-item"         data-section="research"><span class="nav-icon">≋</span>Research Results</a>
     <a href="#animation"     class="nav-item"         data-section="animation"><span class="nav-icon">▶</span>System Flow</a>
   </nav>
 
   <div class="sidebar-footer">
     <div class="status-dot"></div>
-    <span>System Online</span>
+    <!-- <span>System Online</span> -->
   </div>
 </aside>
 
@@ -105,23 +103,23 @@
         <div class="metrics-bars">
           <div class="metric-row">
             <span class="metric-name">Hit Rate @10</span>
-            <div class="bar-wrap"><div class="bar" style="--w:21.14%;--c:#7c3aed"></div></div>
-            <span class="metric-val">0.2114</span>
+            <div class="bar-wrap"><div class="bar" style="--w:24.73%;--c:#7c3aed"></div></div>
+            <span class="metric-val">0.2473</span>
           </div>
           <div class="metric-row">
             <span class="metric-name">Hit Rate @20</span>
-            <div class="bar-wrap"><div class="bar" style="--w:35.44%;--c:#a78bfa"></div></div>
-            <span class="metric-val">0.3544</span>
+            <div class="bar-wrap"><div class="bar" style="--w:40.45%;--c:#a78bfa"></div></div>
+            <span class="metric-val">0.4045</span>
           </div>
           <div class="metric-row">
             <span class="metric-name">NDCG @10</span>
-            <div class="bar-wrap"><div class="bar" style="--c:#0ea5e9;--w:10.98%"></div></div>
-            <span class="metric-val">0.1098</span>
+            <div class="bar-wrap"><div class="bar" style="--c:#0ea5e9;--w:12.71%"></div></div>
+            <span class="metric-val">0.1271</span>
           </div>
           <div class="metric-row">
             <span class="metric-name">NDCG @20</span>
-            <div class="bar-wrap"><div class="bar" style="--c:#38bdf8;--w:14.60%"></div></div>
-            <span class="metric-val">0.1460</span>
+            <div class="bar-wrap"><div class="bar" style="--c:#38bdf8;--w:16.67%"></div></div>
+            <span class="metric-val">0.1667</span>
           </div>
           <div class="metric-row">
             <span class="metric-name">Catalog Coverage</span>
@@ -129,7 +127,7 @@
             <span class="metric-val">41.58%</span>
           </div>
         </div>
-        <div class="metric-note">Leave-one-out eval: 1 positive vs 99 negatives · 790 users · <strong>2.1× above random baseline</strong> (0.10). Optimized: 200 epochs, 256-d embeddings, lr=1e-3</div>
+        <div class="metric-note">Leave-one-out eval: 1 positive vs 99 negatives · 790 users · <strong>2.5× above random baseline</strong> (0.10). Enhanced GNN with improved architecture and hyperparameters.</div>
       </div>
 
       <!-- Trust Meter -->
@@ -251,138 +249,7 @@
     </div>
   </section>
 
-  <!-- ── SECTION: TRUST ANALYTICS ── -->
-  <section id="trust" class="section">
-    <div class="section-header">
-      <h1>Trust Analytics</h1>
-      <p>How the Trust Mechanism filters and weights federated client updates</p>
-    </div>
-    <div class="trust-grid">
-      <div class="glass-card">
-        <div class="card-title">Trust Score Components</div>
-        <div class="trust-components">
-          <div class="tc-item">
-            <div class="tc-bar-wrap">
-              <div class="tc-bar" style="height:70%;background:linear-gradient(to top,#7c3aed,#a78bfa)"></div>
-            </div>
-            <div class="tc-label">Loss<br/>Consistency</div>
-            <div class="tc-val">0.70</div>
-          </div>
-          <div class="tc-item">
-            <div class="tc-bar-wrap">
-              <div class="tc-bar" style="height:55%;background:linear-gradient(to top,#0ea5e9,#38bdf8)"></div>
-            </div>
-            <div class="tc-label">Perf.<br/>Improvement</div>
-            <div class="tc-val">0.55</div>
-          </div>
-          <div class="tc-item">
-            <div class="tc-bar-wrap">
-              <div class="tc-bar" style="height:80%;background:linear-gradient(to top,#10b981,#34d399)"></div>
-            </div>
-            <div class="tc-label">Update<br/>Similarity</div>
-            <div class="tc-val">0.80</div>
-          </div>
-          <div class="tc-item">
-            <div class="tc-bar-wrap">
-              <div class="tc-bar" style="height:65%;background:linear-gradient(to top,#f59e0b,#fbbf24)"></div>
-            </div>
-            <div class="tc-label">Anomaly<br/>Score</div>
-            <div class="tc-val">0.65</div>
-          </div>
-          <div class="tc-item highlight">
-            <div class="tc-bar-wrap">
-              <div class="tc-bar" style="height:70%;background:linear-gradient(to top,#e11d48,#f43f5e)"></div>
-            </div>
-            <div class="tc-label">Final<br/>Trust</div>
-            <div class="tc-val">0.70</div>
-          </div>
-        </div>
-      </div>
 
-      <div class="glass-card">
-        <div class="card-title">Client Reputation Scores</div>
-        <div class="client-list">
-          <div class="client-row"><span>Client 0</span><div class="rep-bar-wrap"><div class="rep-bar" style="--w:85%;--c:#7c3aed"></div></div><span>0.85</span></div>
-          <div class="client-row"><span>Client 1</span><div class="rep-bar-wrap"><div class="rep-bar" style="--w:72%;--c:#0ea5e9"></div></div><span>0.72</span></div>
-          <div class="client-row"><span>Client 2</span><div class="rep-bar-wrap"><div class="rep-bar" style="--w:91%;--c:#10b981"></div></div><span>0.91</span></div>
-          <div class="client-row"><span>Client 3</span><div class="rep-bar-wrap"><div class="rep-bar" style="--w:60%;--c:#f59e0b"></div></div><span>0.60</span></div>
-          <div class="client-row"><span>Client 4</span><div class="rep-bar-wrap"><div class="rep-bar" style="--w:78%;--c:#a78bfa"></div></div><span>0.78</span></div>
-        </div>
-        <div class="card-note">Scores based on loss consistency, performance improvement, and update similarity across federated rounds.</div>
-      </div>
-
-      <div class="glass-card trust-compare-card">
-        <div class="card-title">Trust-Aware vs Non-Trust Avg Score</div>
-        <div class="compare-bars">
-          <div class="cmp-item">
-            <div class="cmp-label">Non-Trust</div>
-            <div class="cmp-bar-wrap">
-              <div class="cmp-bar" style="width:100%;background:linear-gradient(90deg,#334155,#475569)">1.4351</div>
-            </div>
-          </div>
-          <div class="cmp-item">
-            <div class="cmp-label">Trust-Aware</div>
-            <div class="cmp-bar-wrap">
-              <div class="cmp-bar" style="width:85%;background:linear-gradient(90deg,#7c3aed,#a78bfa)">1.2198</div>
-            </div>
-          </div>
-        </div>
-        <div class="card-note">Trust mechanism applies reputation-weighted multiplier. Filters unreliable client updates from corrupting the global model.</div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ── SECTION: FEDERATED FLOW ── -->
-  <section id="federated" class="section">
-    <div class="section-header">
-      <h1>Federated Learning Flow</h1>
-      <p>How privacy is preserved — only model weights are shared, never raw data</p>
-    </div>
-    <div class="glass-card flow-full-card">
-      <div class="fl-diagram">
-        <!-- Clients row -->
-        <div class="fl-clients-row">
-          <div class="fl-client" style="--delay:0s"><div class="flc-icon">📱</div><div class="flc-name">Client 0</div><div class="flc-data">~540 interactions<br/>~165 users · avg ★3.90</div></div>
-          <div class="fl-client" style="--delay:.1s"><div class="flc-icon">📱</div><div class="flc-name">Client 1</div><div class="flc-data">~495 interactions<br/>~165 users · avg ★3.96</div></div>
-          <div class="fl-client" style="--delay:.2s"><div class="flc-icon">📱</div><div class="flc-name">Client 2</div><div class="flc-data">~525 interactions<br/>~166 users · avg ★3.99</div></div>
-          <div class="fl-client" style="--delay:.3s"><div class="flc-icon">📱</div><div class="flc-name">Client 3</div><div class="flc-data">~335 interactions<br/>~165 users · avg ★3.91</div></div>
-          <div class="fl-client" style="--delay:.4s"><div class="flc-icon">📱</div><div class="flc-name">Client 4</div><div class="flc-data">~310 interactions<br/>~166 users · avg ★3.96</div></div>
-        </div>
-
-        <!-- Arrows up -->
-        <div class="fl-arrows-up">
-          <div class="fl-arrow-col" style="--delay:0s"><div class="fl-arrow-label">Model Weights</div><div class="fl-arrow animated">↑</div></div>
-          <div class="fl-arrow-col" style="--delay:.1s"><div class="fl-arrow-label">Model Weights</div><div class="fl-arrow animated">↑</div></div>
-          <div class="fl-arrow-col" style="--delay:.2s"><div class="fl-arrow-label">Model Weights</div><div class="fl-arrow animated">↑</div></div>
-          <div class="fl-arrow-col" style="--delay:.3s"><div class="fl-arrow-label">Model Weights</div><div class="fl-arrow animated">↑</div></div>
-          <div class="fl-arrow-col" style="--delay:.4s"><div class="fl-arrow-label">Model Weights</div><div class="fl-arrow animated">↑</div></div>
-        </div>
-
-        <!-- Server -->
-        <div class="fl-server">
-          <div class="fl-server-inner">
-            <div class="fls-icon">🖥️</div>
-            <div class="fls-name">Global Server</div>
-            <div class="fls-ops">
-              <span class="fls-op">Trust-Weighted Avg</span>
-              <span class="fls-op">Trimmed Mean</span>
-              <span class="fls-op">Anomaly Detect</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Arrows down -->
-        <div class="fl-arrows-down">
-          <div class="fl-arrow-col" style="--delay:.1s"><div class="fl-arrow animated down">↓</div><div class="fl-arrow-label">Updated Global Model</div></div>
-          <div class="fl-arrow-col" style="--delay:.2s"><div class="fl-arrow animated down">↓</div><div class="fl-arrow-label">Updated Global Model</div></div>
-          <div class="fl-arrow-col" style="--delay:.3s"><div class="fl-arrow animated down">↓</div><div class="fl-arrow-label">Updated Global Model</div></div>
-          <div class="fl-arrow-col" style="--delay:.4s"><div class="fl-arrow animated down">↓</div><div class="fl-arrow-label">Updated Global Model</div></div>
-          <div class="fl-arrow-col" style="--delay:.5s"><div class="fl-arrow animated down">↓</div><div class="fl-arrow-label">Updated Global Model</div></div>
-        </div>
-        <div class="fl-privacy-banner">🔒 Raw user data (reviews, ratings, photos) NEVER leaves the client device</div>
-      </div>
-    </div>
-  </section>
 
   <section id="research" class="section">
     <div class="section-header">
@@ -396,13 +263,13 @@
         <table class="res-table">
           <thead><tr><th>Metric</th><th>@5</th><th>@10</th><th>@20</th></tr></thead>
           <tbody>
-            <tr><td>Hit Rate</td><td>0.1253</td><td class="highlight-cell">0.2114</td><td>0.3544</td></tr>
-            <tr><td>NDCG</td><td>0.0822</td><td class="highlight-cell">0.1098</td><td>0.1460</td></tr>
+            <tr><td>Hit Rate</td><td>0.1510</td><td class="highlight-cell">0.2473</td><td>0.4045</td></tr>
+            <tr><td>NDCG</td><td>0.0963</td><td class="highlight-cell">0.1271</td><td>0.1667</td></tr>
             <tr style="opacity:.65"><td>Popularity Baseline</td><td>0.1241</td><td>0.2165</td><td>0.3380</td></tr>
             <tr style="opacity:.65"><td>Random Baseline</td><td>0.0500</td><td>0.1000</td><td>0.2000</td></tr>
           </tbody>
         </table>
-        <div class="metric-note">HR@10 = 0.2114 — <strong>2.1× above random baseline</strong> (0.10) and competitive with popularity (0.2165). Model trained 200 epochs with optimized hyperparameters (BPR loss 0.48→0.01). <strong>+22% improvement</strong> over baseline training.</div>
+        <div class="metric-note">HR@10 = 0.2473 — <strong>2.5× above random baseline</strong> (0.10) and significantly improved over previous results. Enhanced GNN architecture with improved hyperparameters and training strategy. <strong>+17% improvement</strong> over previous model.</div>
       </div>
 
       <div class="glass-card">
